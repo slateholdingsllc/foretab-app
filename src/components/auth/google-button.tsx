@@ -4,13 +4,23 @@ import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { signInWithGoogle } from "@/lib/actions/auth";
 
-export function GoogleButton({ next = "/" }: { next?: string }) {
+export function GoogleButton({
+  next = "/",
+  businessState,
+}: {
+  next?: string;
+  businessState?: string;
+}) {
   const [pending, startTransition] = useTransition();
 
   return (
     <form
       action={(formData) => {
         formData.set("next", next);
+        // businessState is set by SignupGate when this button renders on /signup.
+        // Login flow (no SignupGate parent) doesn't set it — server validation
+        // only enforces business_state for new signups (see signInWithGoogle).
+        if (businessState) formData.set("business_state", businessState);
         startTransition(async () => {
           await signInWithGoogle(formData);
         });

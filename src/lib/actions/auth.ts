@@ -3,7 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { isExcludedBusinessState } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
+
+/**
+ * Validates a self-declared business state from signup. Required at signup
+ * (legal posture: customers must affirm they're not in an excluded state).
+ * Returns an error message if invalid or excluded; null if OK.
+ *
+ * Server-side mirror of the client-side gate in SignupGate. Both layers
+ * matter — client gate is the UX; server gate is the enforcement.
+ */
+function validateBusinessStateForSignup(formData: FormData): string | null {
+  const businessState = String(formData.get("business_state") ?? "")
+    .trim()
+    .toUpperCase();
+  if (!businessState) {
+    return "Pick your business state to continue.";
+  }
+  if (businessState.length !== 2) {
+    return "Business state must be a 2-letter code.";
+  }
+  if (isExcludedBusinessState(businessState)) {
+    return "Foretab doesn't currently operate in that state. Email hi@foretab.com to be notified when we expand.";
+  }
+  return null;
+}
 
 /**
  * Derive the request's origin from the live request headers, so auth-flow
@@ -39,10 +64,16 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const signupSource = String(formData.get("signup_source") ?? "organic");
+  const businessState = String(formData.get("business_state") ?? "")
+    .trim()
+    .toUpperCase();
 
   if (!email || !password) {
     return { ok: false, error: "Email and password are required." };
   }
+
+  const stateError = validateBusinessStateForSignup(formData);
+  if (stateError) return { ok: false, error: stateError };
 
   const supabase = await createClient();
   const origin = await getRequestOrigin();
@@ -53,9 +84,11 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       // Verification link returns here; auth/callback exchanges the code
       // for a session, fires the auth.users trigger, then routes to /state-selection.
       emailRedirectTo: `${origin}/auth/callback?next=/state-selection`,
-      // signup_source flows into auth.users.raw_user_meta_data and is
-      // picked up by the public.handle_email_confirmed() trigger.
-      data: { signup_source: signupSource },
+      // signup_source + business_state flow into auth.users.raw_user_meta_data.
+      // business_state is audit-only at this stage (legal: "customer self-
+      // declared at signup"); not yet read into the customers row, that's
+      // a follow-up if/when storage becomes legally necessary.
+      data: { signup_source: signupSource, business_state: businessState },
     },
   });
 
@@ -83,6 +116,17 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
 
 export async function signInWithGoogle(formData: FormData): Promise<AuthActionResult> {
   const next = String(formData.get("next") ?? "/");
+
+  // business_state is present when invoked from /signup (SignupGate sets it).
+  // Not present on /login (returning user — gate doesn't apply). Validate only
+  // when present; absence is OK here. Known edge case: a new user OAuthing
+  // from /login bypasses the gate entirely (no customers row gets a state).
+  // Acceptable for v1 — back-door enforcement is a follow-up if legal asks.
+  const businessStateRaw = String(formData.get("business_state") ?? "").trim();
+  if (businessStateRaw) {
+    const stateError = validateBusinessStateForSignup(formData);
+    if (stateError) return { ok: false, error: stateError };
+  }
 
   const supabase = await createClient();
   const origin = await getRequestOrigin();

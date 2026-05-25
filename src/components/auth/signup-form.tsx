@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUp } from "@/lib/actions/auth";
 
-export function SignupForm() {
+export function SignupForm({ businessState }: { businessState?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -15,6 +15,9 @@ export function SignupForm() {
     <form
       action={(formData) => {
         setError(null);
+        // SignupGate enforces this is non-empty + non-excluded before
+        // rendering us; pass through for server-side re-validation.
+        if (businessState) formData.set("business_state", businessState);
         startTransition(async () => {
           const result = await signUp(formData);
           if (result && !result.ok) setError(result.error);
