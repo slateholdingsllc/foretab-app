@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  /* Foretab brand tokens */
+  --color-brand-electric: #2A7BFF;
+  --color-graphite-50: #FAFAFA;
+  --color-graphite-100: #F4F4F5;
+  --color-graphite-200: #E4E4E7;
+  --color-graphite-300: #D4D4D8;
+  --color-graphite-400: #A1A1AA;
+  --color-graphite-500: #71717A;
+  --color-graphite-600: #52525B;
+  --color-graphite-700: #3F3F46;
+  --color-graphite-800: #27272A;
+  --color-graphite-900: #18181B;
+
+  /* shadcn semantic tokens (light theme defaults) */
+  --color-background: #FFFFFF;
+  --color-foreground: #18181B;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #18181B;
+  --color-primary: #2A7BFF;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #F4F4F5;
+  --color-secondary-foreground: #18181B;
+  --color-muted: #F4F4F5;
+  --color-muted-foreground: #71717A;
+  --color-accent: #F4F4F5;
+  --color-accent-foreground: #18181B;
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #E4E4E7;
+  --color-input: #E4E4E7;
+  --color-ring: #2A7BFF;
+  --radius: 0.5rem;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+}
