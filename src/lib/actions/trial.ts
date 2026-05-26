@@ -12,31 +12,42 @@ const TRIAL_LENGTH_DAYS = 7;
 // place trial length lives in app code. See memory:
 // configurable-not-hardcoded.
 
+// Default saved views seeded at trial signup. Shape mirrors FilterState
+// (see src/lib/dashboard/types.ts) so the Task 16 saved-views menu can
+// load them directly. normalizeFilterConfig also accepts the legacy
+// snake_case shape — pre-Task-16 trials are still readable.
 const DEFAULT_FILTERS = [
   {
     name: "New restaurants this month",
     filter_config: {
-      license_types: ["new_issuance"],
-      business_archetypes: ["restaurant_full_service", "restaurant_quick_serve"],
-      date_range_days: 30,
-      sort_order: "newest_first",
-      page_size: 50,
-    },
-  },
-  {
-    name: "On-premises licenses (all)",
-    filter_config: {
-      on_premises: true,
-      sort_order: "newest_first",
-      page_size: 50,
+      states: [],
+      licenseTypes: ["new_issuance"],
+      signalStrengths: [],
+      businessArchetypes: ["restaurant_full_service", "restaurant_quick_serve"],
+      daysWindow: 30,
+      sort: "newest_first",
     },
   },
   {
     name: "Hot signal only",
     filter_config: {
-      signal_strength: ["hot"],
-      sort_order: "signal_strength_desc",
-      page_size: 50,
+      states: [],
+      licenseTypes: [],
+      signalStrengths: ["hot"],
+      businessArchetypes: [],
+      daysWindow: null,
+      sort: "signal_strength_desc",
+    },
+  },
+  {
+    name: "Last 7 days",
+    filter_config: {
+      states: [],
+      licenseTypes: [],
+      signalStrengths: [],
+      businessArchetypes: [],
+      daysWindow: 7,
+      sort: "newest_first",
     },
   },
 ];
