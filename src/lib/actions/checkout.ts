@@ -109,22 +109,25 @@ export async function createCheckoutSession(formData: FormData): Promise<Checkou
  * Per dispatch §7.5: use Stripe's hosted portal rather than building our
  * own.
  *
- * Used by the future /account Manage Billing button (Task 18). Currently
- * only invoked manually.
+ * Used by /account Manage Billing button (Task 18). Errors redirect back
+ * to /account?error=... so the form action stays Promise<void>-shaped for
+ * React server-action compatibility.
  */
-export async function createPortalSession(): Promise<CheckoutResult> {
+export async function createPortalSession(): Promise<void> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in." };
+  if (!user) redirect("/login");
 
   const { data: customer } = await supabase
     .from("customers")
     .select("id")
     .eq("auth_user_id", user.id)
     .single();
-  if (!customer) return { ok: false, error: "Customer profile not found." };
+  if (!customer) {
+    redirect("/account?error=Customer+profile+not+found.");
+  }
 
   // Look up Stripe Customer ID from any existing subscription. No
   // customers.stripe_customer_id cache; subscriptions table is the
@@ -138,7 +141,7 @@ export async function createPortalSession(): Promise<CheckoutResult> {
 
   const stripeCustomerId = sub?.stripe_customer_id;
   if (!stripeCustomerId) {
-    return { ok: false, error: "No active subscription — can't open billing portal." };
+    redirect("/account?error=No+subscription+yet+%E2%80%94+choose+a+plan+first.");
   }
 
   const stripe = getStripe();
