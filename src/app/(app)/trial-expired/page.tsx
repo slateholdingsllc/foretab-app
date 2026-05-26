@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { SubscribeButton } from "@/components/checkout/subscribe-button";
 import {
   Card,
   CardContent,
@@ -105,13 +105,22 @@ export default async function TrialExpiredPage() {
                       or {formatCurrency(annual)}/yr (10% off)
                     </div>
                   </div>
-                  <Button
-                    disabled
-                    className="w-full"
-                    title="Self-serve subscriptions launch with Task 10. Email hi@foretab.com to subscribe today."
-                  >
-                    Subscribe (soon)
-                  </Button>
+                  <div className="space-y-2">
+                    <SubscribeButton
+                      tier={t.key}
+                      billingPeriod="monthly"
+                      className="w-full"
+                    >
+                      Subscribe monthly · {formatCurrency(monthly)}/mo
+                    </SubscribeButton>
+                    <SubscribeButton
+                      tier={t.key}
+                      billingPeriod="annual"
+                      className="w-full"
+                    >
+                      Subscribe yearly · {formatCurrency(annual)}/yr
+                    </SubscribeButton>
+                  </div>
                 </CardContent>
               </Card>
             );
