@@ -1,0 +1,140 @@
+import {
+  type BusinessArchetype,
+  DEFAULT_FILTER_STATE,
+  type FilterState,
+  type LicenseRecordType,
+  type SignalStrength,
+  type SortOrder,
+} from "./types";
+
+/**
+ * URL search params <-> FilterState serialization. URL is the source of
+ * truth: filter changes navigate to a new URL, server re-renders. No
+ * client-side state to sync. Shareable, back-button works, no JS
+ * required for the filter form to function.
+ *
+ * Param shape (comma-separated lists):
+ *   ?states=NY,PA
+ *   ?types=new_issuance,renewal
+ *   ?signal=hot,warm
+ *   ?archetype=restaurant_full_service,bar_tavern
+ *   ?days=30
+ *   ?sort=newest_first
+ *   ?cursor=<base64url>
+ */
+
+const VALID_LICENSE_TYPES: LicenseRecordType[] = [
+  "new_issuance",
+  "renewal",
+  "transfer",
+  "expiration",
+  "suspension",
+  "revocation",
+  "application",
+];
+
+const VALID_SIGNAL_STRENGTHS: SignalStrength[] = ["hot", "warm", "cold"];
+
+const VALID_BUSINESS_ARCHETYPES: BusinessArchetype[] = [
+  "bar_tavern",
+  "restaurant_full_service",
+  "restaurant_quick_serve",
+  "package_store",
+  "grocery",
+  "convenience",
+  "hotel_lodging",
+  "brewery",
+  "winery",
+  "distillery",
+  "wholesaler",
+  "importer",
+  "club",
+  "special_event",
+  "other",
+];
+
+const VALID_SORTS: SortOrder[] = ["newest_first", "oldest_first", "signal_strength_desc"];
+
+const VALID_DAYS_WINDOWS = new Set([7, 30, 90, 180, 365]);
+
+function parseList<T extends string>(raw: string | undefined, valid: readonly T[]): T[] {
+  if (!raw) return [];
+  const validSet = new Set(valid);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is T => validSet.has(s as T));
+}
+
+function parseStateList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s.length === 2 && /^[A-Z]{2}$/.test(s));
+}
+
+function parseDaysWindow(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  if (Number.isNaN(n)) return null;
+  if (!VALID_DAYS_WINDOWS.has(n)) return null;
+  return n;
+}
+
+function parseSort(raw: string | undefined): SortOrder {
+  if (!raw) return DEFAULT_FILTER_STATE.sort;
+  if ((VALID_SORTS as string[]).includes(raw)) return raw as SortOrder;
+  return DEFAULT_FILTER_STATE.sort;
+}
+
+export function parseFiltersFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined>,
+): FilterState {
+  const get = (key: string): string | undefined => {
+    const v = searchParams[key];
+    if (Array.isArray(v)) return v[0];
+    return v;
+  };
+
+  return {
+    states: parseStateList(get("states")),
+    licenseTypes: parseList(get("types"), VALID_LICENSE_TYPES),
+    signalStrengths: parseList(get("signal"), VALID_SIGNAL_STRENGTHS),
+    businessArchetypes: parseList(get("archetype"), VALID_BUSINESS_ARCHETYPES),
+    daysWindow: parseDaysWindow(get("days")),
+    sort: parseSort(get("sort")),
+  };
+}
+
+/**
+ * Serialize a filter state back into URL search params. Used by the
+ * filter form to construct the new URL on submit. Omits empty values
+ * so URLs stay short and readable.
+ */
+export function serializeFiltersToSearchParams(filters: FilterState): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.states.length > 0) params.set("states", filters.states.join(","));
+  if (filters.licenseTypes.length > 0) params.set("types", filters.licenseTypes.join(","));
+  if (filters.signalStrengths.length > 0) params.set("signal", filters.signalStrengths.join(","));
+  if (filters.businessArchetypes.length > 0)
+    params.set("archetype", filters.businessArchetypes.join(","));
+  if (filters.daysWindow !== null) params.set("days", String(filters.daysWindow));
+  if (filters.sort !== DEFAULT_FILTER_STATE.sort) params.set("sort", filters.sort);
+  return params;
+}
+
+/**
+ * Detects whether any filter is non-default — used to decide whether to
+ * show a "Clear filters" link.
+ */
+export function hasActiveFilters(filters: FilterState): boolean {
+  return (
+    filters.states.length > 0 ||
+    filters.licenseTypes.length > 0 ||
+    filters.signalStrengths.length > 0 ||
+    filters.businessArchetypes.length > 0 ||
+    filters.daysWindow !== null ||
+    filters.sort !== DEFAULT_FILTER_STATE.sort
+  );
+}
