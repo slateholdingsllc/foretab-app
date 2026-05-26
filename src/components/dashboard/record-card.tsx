@@ -1,22 +1,33 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getRecordSourceLabel } from "@/lib/dashboard/state-display";
-import type { DashboardRecord } from "@/lib/dashboard/types";
+import type { DashboardRecord, StateHealthEntry } from "@/lib/dashboard/types";
+import { FreshnessBadge } from "./freshness-badge";
 import { SignalBadge } from "./signal-badge";
 
 /**
  * Per-record card. Renders one classified_record + its joined business +
- * location. "Last verified" is Task 15 prep — for now we show
- * classified_at as the freshness proxy. When Task 15 ships, it swaps to
- * data_source_health.last_refresh_at lookup per state.
+ * location.
  *
- * data_source_channel slot is RESERVED — rendered as a muted line below
- * the source label, currently always showing the state-derived label
- * (e.g., "Michigan ABC, via PRR" for MI). When Agent A adds the
- * data_source_channel column to classified_records, the slot will
- * show channel-specific strings per record (e.g., "Florida, via Socrata").
+ * Freshness (Task 15): the per-state "last verified" badge is driven by
+ * data_source_health.last_refresh_at (joined to states.refresh_frequency
+ * for cadence-aware thresholds). Caller passes the relevant StateHealthEntry
+ * pulled from the StateHealthMap by record.state_id. When health is
+ * unavailable (missing entry), the badge degrades to "Last refresh unknown"
+ * — never silently hides the freshness signal.
+ *
+ * data_source_channel slot is RESERVED — rendered in the source label,
+ * always showing the state-derived label (e.g., "Michigan ABC, via PRR"
+ * for MI). When Agent A adds the data_source_channel column to
+ * classified_records, the slot will show channel-specific strings.
  */
-export function RecordCard({ record }: { record: DashboardRecord }) {
+export function RecordCard({
+  record,
+  health,
+}: {
+  record: DashboardRecord;
+  health: StateHealthEntry | null;
+}) {
   const business = record.business;
   const location = record.location;
 
@@ -83,29 +94,12 @@ export function RecordCard({ record }: { record: DashboardRecord }) {
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-input pt-3 text-xs text-muted-foreground">
           <span>{sourceLabel}</span>
-          <span>
-            Last verified <RelativeTime iso={record.classified_at} />
-          </span>
+          <FreshnessBadge
+            refreshFrequency={health?.refresh_frequency ?? null}
+            lastRefreshAt={health?.last_refresh_at ?? null}
+          />
         </div>
       </CardContent>
     </Card>
   );
-}
-
-/**
- * Relative time — server-rendered, so customer sees the same value as
- * when the page loaded. No client refresh; an explicit page reload
- * picks up the latest. Avoids hydration mismatch from client clock.
- */
-function RelativeTime({ iso }: { iso: string }) {
-  const date = new Date(iso);
-  const diff = Date.now() - date.getTime();
-  const hours = Math.round(diff / (60 * 60 * 1000));
-  const days = Math.round(diff / (24 * 60 * 60 * 1000));
-  let label: string;
-  if (hours < 1) label = "moments ago";
-  else if (hours < 24) label = `${hours}h ago`;
-  else if (days < 30) label = `${days}d ago`;
-  else label = date.toLocaleDateString();
-  return <time dateTime={iso}>{label}</time>;
 }

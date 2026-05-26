@@ -241,3 +241,60 @@ export async function fetchAccessibleStateCodes(): Promise<string[]> {
     .filter((s): s is string => Boolean(s))
     .sort();
 }
+
+/**
+ * Fetch data_source_health for all states in the customer's accessible
+ * set, returned as a Map keyed by state_id. Powers the per-record
+ * freshness badge (RecordCard) and the degraded-state banner
+ * (DegradedStateBanner on the dashboard root).
+ *
+ * RLS does the state-scoping (migration 018): the authenticated SELECT
+ * policy on data_source_health uses customer_accessible_state_ids().
+ * Customer sees one row per accessible state automatically.
+ *
+ * Joined to states for state_code + refresh_frequency since both are
+ * needed by the freshness classifier.
+ */
+import type { StateHealthEntry, StateHealthMap } from "./types";
+
+export async function fetchDataSourceHealthMap(): Promise<StateHealthMap> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("data_source_health")
+    .select(
+      `
+      state_id,
+      last_refresh_at,
+      status,
+      error_count_24h,
+      states ( state_code, refresh_frequency )
+    `,
+    );
+
+  if (error) {
+    console.error("[fetchDataSourceHealthMap] query failed:", error);
+    return new Map();
+  }
+
+  const rows = (data ?? []) as unknown as Array<{
+    state_id: string;
+    last_refresh_at: string | null;
+    status: string | null;
+    error_count_24h: number | null;
+    states: { state_code: string | null; refresh_frequency: string | null } | null;
+  }>;
+
+  const map: StateHealthMap = new Map();
+  for (const r of rows) {
+    const entry: StateHealthEntry = {
+      state_id: r.state_id,
+      state_code: r.states?.state_code ?? null,
+      refresh_frequency: r.states?.refresh_frequency ?? null,
+      last_refresh_at: r.last_refresh_at,
+      status: r.status,
+      error_count_24h: r.error_count_24h,
+    };
+    map.set(r.state_id, entry);
+  }
+  return map;
+}

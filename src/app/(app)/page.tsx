@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { DegradedStateBanner } from "@/components/dashboard/degraded-state-banner";
 import { Feed } from "@/components/dashboard/feed";
 import { parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
 import {
   fetchAccessibleStateCodes,
   fetchCustomerContext,
   fetchDashboardPage,
+  fetchDataSourceHealthMap,
 } from "@/lib/dashboard/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -86,10 +88,11 @@ export default async function DashboardPage({
   const cursor =
     typeof resolvedSearchParams.cursor === "string" ? resolvedSearchParams.cursor : null;
 
-  const [context, accessibleStateCodes, page] = await Promise.all([
+  const [context, accessibleStateCodes, page, healthMap] = await Promise.all([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
     fetchDashboardPage({ filters, cursor }),
+    fetchDataSourceHealthMap(),
   ]);
 
   return (
@@ -99,7 +102,8 @@ export default async function DashboardPage({
       trialExpiresAt={context.trialExpiresAt}
       accessibleStateCodes={accessibleStateCodes}
     >
-      <Feed page={page} filters={filters} />
+      <DegradedStateBanner healthMap={healthMap} />
+      <Feed page={page} filters={filters} healthMap={healthMap} />
     </AppShell>
   );
 }
