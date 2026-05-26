@@ -6,11 +6,12 @@ import { TrialBadge } from "./trial-badge";
 
 /**
  * Top bar of the dashboard chrome. Brand mark left; tier + trial badges
- * center-right; account email + sign-out right.
+ * center-right; account link + email + sign-out right.
  *
- * No dropdown menu — just inline email + sign-out button. Keeps the
- * component dependency-free (no Radix). Account-settings page (Task 18)
- * will introduce a fuller account menu.
+ * No dropdown menu — flat inline links. The Account link is intentionally
+ * top-level (not behind a menu) to satisfy the legal reviewer's parallel
+ * principle: cancel/manage CTAs must be equally findable as upgrade CTAs.
+ * The /account page houses subscription management, including cancel.
  */
 export function TopBar({
   email,
@@ -40,6 +41,13 @@ export function TopBar({
           {email ? (
             <span className="hidden text-sm text-muted-foreground sm:inline">{email}</span>
           ) : null}
+
+          <Link
+            href="/account"
+            className="text-sm font-medium underline-offset-4 hover:underline"
+          >
+            Account
+          </Link>
 
           <form action={signOut}>
             <Button type="submit" variant="outline" size="sm">

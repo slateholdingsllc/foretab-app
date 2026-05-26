@@ -25,6 +25,16 @@ export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
   all_access: "All-Access",
 };
 
+// How many states a customer can pick per tier. all_access doesn't pick —
+// every sellable state is granted at checkout (handleCheckoutSessionCompleted).
+// TODO(configurable-not-hardcoded): move to public.app_config when a second
+// tier limit needs adjusting. Today these mirror foretab-engine docs/pricing.md §3.
+export const TIER_STATE_COUNT: Record<Tier, number> = {
+  single_state: 1,
+  multi_state: 5,
+  all_access: Number.POSITIVE_INFINITY,
+};
+
 export function getChargeAmount(tier: Tier, billingPeriod: BillingPeriod): number {
   return TIER_PRICING[tier][billingPeriod];
 }
