@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { decodeCursor, encodeCursor } from "./cursor";
+import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
 import type { DashboardRecord, FilterState, PageResult } from "./types";
 import { PAGE_SIZE } from "./types";
 
@@ -490,4 +491,42 @@ export async function fetchExportStatus(): Promise<ExportStatus> {
     cap: TRIAL_EXPORT_CUMULATIVE_CAP,
     canExport: alreadyExported < TRIAL_EXPORT_CUMULATIVE_CAP,
   };
+}
+
+/**
+ * Fetch the current customer's saved filter views (max 20 by DB trigger).
+ * RLS scopes to own rows. filter_config is normalized into FilterState
+ * at read time — legacy seed shape and new shape both supported (see
+ * normalizeFilterConfig).
+ *
+ * Defaults (is_default=true) come first, then user-saved alphabetically.
+ * Defaults aren't visually special — that's a comment-level distinction
+ * only — but ordering helps customers find the seeded ones first.
+ */
+export async function fetchSavedFilters(): Promise<SavedFilter[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("customer_saved_filters")
+    .select("id, name, is_default, filter_config")
+    .order("is_default", { ascending: false })
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[fetchSavedFilters] query failed:", error);
+    return [];
+  }
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    name: string;
+    is_default: boolean;
+    filter_config: unknown;
+  }>;
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    is_default: r.is_default,
+    filter_config: normalizeFilterConfig(r.filter_config),
+  }));
 }

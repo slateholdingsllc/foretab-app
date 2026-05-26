@@ -7,7 +7,9 @@ import { SubscriptionSection } from "@/components/account/subscription-section";
 import {
   fetchAccessibleStateCodes,
   fetchCustomerContext,
+  fetchSavedFilters,
 } from "@/lib/dashboard/queries";
+import { DEFAULT_FILTER_STATE } from "@/lib/dashboard/types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -90,9 +92,10 @@ export default async function AccountPage({
     refresh_frequency: string | null;
   }>;
 
-  const [context, accessibleStateCodes] = await Promise.all([
+  const [context, accessibleStateCodes, savedFilters] = await Promise.all([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
+    fetchSavedFilters(),
   ]);
 
   const resolvedSearchParams = await searchParams;
@@ -107,6 +110,8 @@ export default async function AccountPage({
       currentTier={context.currentTier}
       trialExpiresAt={context.trialExpiresAt}
       accessibleStateCodes={accessibleStateCodes}
+      savedFilters={savedFilters}
+      currentFilters={DEFAULT_FILTER_STATE}
     >
       <div className="mx-auto max-w-3xl space-y-6">
         <header className="flex items-center justify-between">
