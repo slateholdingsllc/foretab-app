@@ -3,31 +3,63 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { isExcludedBusinessState } from "@/lib/constants";
+import { getExcludedBusinessStates } from "@/lib/excluded-states";
+import { logGateRejection } from "@/lib/gate-rejections";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * Validates a self-declared business state from signup. Required at signup
  * (legal posture: customers must affirm they're not in an excluded state).
- * Returns an error message if invalid or excluded; null if OK.
+ * Returns:
+ *   - { ok: true, businessState: "NY" } if valid
+ *   - { ok: false, reason: "missing"|"invalid_format"|"excluded", error: string }
+ *     if not. Caller logs to gate_rejections only when reason === "excluded".
  *
- * Server-side mirror of the client-side gate in SignupGate. Both layers
- * matter — client gate is the UX; server gate is the enforcement.
+ * Reads the excluded list from public.excluded_business_states() — same
+ * source as the /signup UI gate. Re-validates server-side; client gate is
+ * UX-only, not enforcement.
  */
-function validateBusinessStateForSignup(formData: FormData): string | null {
+type StateValidationResult =
+  | { ok: true; businessState: string }
+  | {
+      ok: false;
+      reason: "missing" | "invalid_format" | "excluded";
+      error: string;
+      declaredState?: string;
+    };
+
+async function validateBusinessStateForSignup(
+  formData: FormData,
+): Promise<StateValidationResult> {
   const businessState = String(formData.get("business_state") ?? "")
     .trim()
     .toUpperCase();
   if (!businessState) {
-    return "Pick your business state to continue.";
+    return {
+      ok: false,
+      reason: "missing",
+      error: "Pick your business state to continue.",
+    };
   }
   if (businessState.length !== 2) {
-    return "Business state must be a 2-letter code.";
+    return {
+      ok: false,
+      reason: "invalid_format",
+      error: "Business state must be a 2-letter code.",
+      declaredState: businessState,
+    };
   }
-  if (isExcludedBusinessState(businessState)) {
-    return "Foretab doesn't currently operate in that state. Email hi@foretab.com to be notified when we expand.";
+  const excluded = await getExcludedBusinessStates();
+  if (excluded.includes(businessState)) {
+    return {
+      ok: false,
+      reason: "excluded",
+      error:
+        "Foretab doesn't currently operate in that state. Email hi@foretab.com to be notified when we expand.",
+      declaredState: businessState,
+    };
   }
-  return null;
+  return { ok: true, businessState };
 }
 
 /**
@@ -64,16 +96,25 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const signupSource = String(formData.get("signup_source") ?? "organic");
-  const businessState = String(formData.get("business_state") ?? "")
-    .trim()
-    .toUpperCase();
 
   if (!email || !password) {
     return { ok: false, error: "Email and password are required." };
   }
 
-  const stateError = validateBusinessStateForSignup(formData);
-  if (stateError) return { ok: false, error: stateError };
+  const stateResult = await validateBusinessStateForSignup(formData);
+  if (!stateResult.ok) {
+    if (stateResult.reason === "excluded" && stateResult.declaredState) {
+      // Audit log for regulatory evidence trail. Best-effort — failure
+      // does not block the rejection user-flow.
+      await logGateRejection({
+        declaredState: stateResult.declaredState,
+        gate: "signup",
+        // No auth user yet at signup gate — pre-auth context.
+      });
+    }
+    return { ok: false, error: stateResult.error };
+  }
+  const businessState = stateResult.businessState;
 
   const supabase = await createClient();
   const origin = await getRequestOrigin();
@@ -85,9 +126,9 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       // for a session, fires the auth.users trigger, then routes to /state-selection.
       emailRedirectTo: `${origin}/auth/callback?next=/state-selection`,
       // signup_source + business_state flow into auth.users.raw_user_meta_data.
-      // business_state is audit-only at this stage (legal: "customer self-
-      // declared at signup"); not yet read into the customers row, that's
-      // a follow-up if/when storage becomes legally necessary.
+      // business_state here is audit-only — the load-bearing write happens
+      // at /state-selection (customers.business_state column). This metadata
+      // gives us a paper trail for the early signup-time affirmation.
       data: { signup_source: signupSource, business_state: businessState },
     },
   });
@@ -120,12 +161,20 @@ export async function signInWithGoogle(formData: FormData): Promise<AuthActionRe
   // business_state is present when invoked from /signup (SignupGate sets it).
   // Not present on /login (returning user — gate doesn't apply). Validate only
   // when present; absence is OK here. Known edge case: a new user OAuthing
-  // from /login bypasses the gate entirely (no customers row gets a state).
-  // Acceptable for v1 — back-door enforcement is a follow-up if legal asks.
+  // from /login bypasses the SIGNUP gate, but they still hit the load-bearing
+  // /state-selection gate before any service delivery.
   const businessStateRaw = String(formData.get("business_state") ?? "").trim();
   if (businessStateRaw) {
-    const stateError = validateBusinessStateForSignup(formData);
-    if (stateError) return { ok: false, error: stateError };
+    const stateResult = await validateBusinessStateForSignup(formData);
+    if (!stateResult.ok) {
+      if (stateResult.reason === "excluded" && stateResult.declaredState) {
+        await logGateRejection({
+          declaredState: stateResult.declaredState,
+          gate: "signup",
+        });
+      }
+      return { ok: false, error: stateResult.error };
+    }
   }
 
   const supabase = await createClient();

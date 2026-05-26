@@ -5,11 +5,7 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { SignupForm } from "@/components/auth/signup-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-import {
-  US_STATES_AND_DC,
-  getStateName,
-  isExcludedBusinessState,
-} from "@/lib/constants";
+import { US_STATES_AND_DC, getStateName } from "@/lib/constants";
 
 /**
  * SignupGate manages the business_state field and conditionally renders the
@@ -18,15 +14,21 @@ import {
  *
  * Three UI states:
  *   - No state selected: render the dropdown + a hint. Auth options hidden.
- *   - Excluded state selected (CA/WA/TX/VT/OR): replace auth options with
- *     an explanatory message + email-us CTA.
+ *   - Excluded state selected: replace auth options with an explanatory
+ *     message + email-us CTA.
  *   - Valid state selected: render auth options (Google + email/password)
  *     wired with the business_state value.
+ *
+ * excludedStates is passed in from the server component parent — it's
+ * fetched from public.excluded_business_states() at request time, so this
+ * UI gate adapts to config changes without a redeploy. Server-side
+ * validation re-checks the same RPC on submit; client-side prop is the
+ * UX layer, not the enforcement.
  */
-export function SignupGate() {
+export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
   const [businessState, setBusinessState] = useState<string>("");
 
-  const isExcluded = businessState && isExcludedBusinessState(businessState);
+  const isExcluded = businessState && excludedStates.includes(businessState);
   const isValid = businessState && !isExcluded;
 
   return (

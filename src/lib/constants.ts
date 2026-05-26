@@ -1,25 +1,18 @@
 /**
- * States Foretab does not operate in. Signup is gated against these per the
- * Phase 2 legal posture (see foretab-engine docs/pricing.md §11 + the legal
- * docs queued for publish). Customers must affirm a non-excluded business
- * state at signup.
+ * US states + DC. Used by the signup business-state dropdown and the
+ * state-selection collector. Sorted by full name (alphabetical UX).
+ * Codes are 2-letter USPS.
  *
- * Hardcoded here (not derived from public.states.excluded) because:
- *   1. This list reflects CUSTOMER LOCATION restrictions, not data coverage.
- *      The states table's `excluded` column governs which states' data we sell.
- *      Those concepts overlap today by coincidence — keep them separated in
- *      code so we can diverge cleanly (e.g., serve customers in a state whose
- *      data we don't yet carry, or vice versa).
- *   2. Server-side validation needs this list before any DB call.
+ * The list of EXCLUDED business states (CA/WA/TX/VT/OR/NE/NC at time of
+ * writing) is NOT in this file — it's read at runtime from the database
+ * config function `public.excluded_business_states()`. See
+ * src/lib/excluded-states.ts. The list is mutable config; both signup
+ * and state-selection gates read it on every request so updates take
+ * effect without a redeploy.
  */
-export const EXCLUDED_BUSINESS_STATES = new Set(["CA", "WA", "TX", "VT", "OR"]);
 
 export type StateOption = { code: string; name: string };
 
-/**
- * All US states + DC. Used by the signup business-state dropdown. Sorted by
- * full name so the picker is alphabetical. Codes are 2-letter USPS.
- */
 export const US_STATES_AND_DC: ReadonlyArray<StateOption> = [
   { code: "AL", name: "Alabama" },
   { code: "AK", name: "Alaska" },
@@ -73,10 +66,6 @@ export const US_STATES_AND_DC: ReadonlyArray<StateOption> = [
   { code: "WI", name: "Wisconsin" },
   { code: "WY", name: "Wyoming" },
 ];
-
-export function isExcludedBusinessState(code: string): boolean {
-  return EXCLUDED_BUSINESS_STATES.has(code.toUpperCase());
-}
 
 export function getStateName(code: string): string | undefined {
   return US_STATES_AND_DC.find((s) => s.code === code.toUpperCase())?.name;
