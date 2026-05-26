@@ -47,7 +47,7 @@ export default async function DashboardPage({
   // state-selection hasn't run yet.
   const { data: customer } = await supabase
     .from("customers")
-    .select("id")
+    .select("id, current_tier")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -60,12 +60,24 @@ export default async function DashboardPage({
 
   const { data: trial } = await supabase
     .from("trials")
-    .select("id")
+    .select("id, expires_at")
     .eq("customer_id", customer.id)
     .maybeSingle();
 
   if (!trial) {
     redirect("/state-selection");
+  }
+
+  // Trial expired and customer hasn't converted to a paid tier?
+  // Send to the re-engagement screen. Per dispatch §10.3, trial data is
+  // preserved for 30 days so subscribing within that window picks up
+  // where they left off.
+  if (
+    trial.expires_at &&
+    new Date(trial.expires_at) < new Date() &&
+    !customer.current_tier
+  ) {
+    redirect("/trial-expired");
   }
 
   // Past the guards — fetch data in parallel.
