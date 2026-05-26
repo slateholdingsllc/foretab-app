@@ -112,6 +112,23 @@ export const DEFAULT_FILTER_STATE: FilterState = {
 
 export const PAGE_SIZE = 50;
 
+/**
+ * Per-state health entry used by the freshness UI. One row per state in
+ * the customer's accessible set. Keyed by state_id in the map exposed
+ * by fetchDataSourceHealthMap().
+ */
+export type StateHealthEntry = {
+  state_id: string;
+  state_code: string | null;
+  refresh_frequency: string | null;
+  last_refresh_at: string | null;
+  /** Operator-set: green / yellow / red / unknown */
+  status: string | null;
+  error_count_24h: number | null;
+};
+
+export type StateHealthMap = Map<string, StateHealthEntry>;
+
 export type CursorPayload = {
   /** classified_at of the last record on the previous page (ISO timestamp) */
   c: string;
