@@ -4,6 +4,14 @@ import type { DashboardRecord, FilterState, PageResult } from "./types";
 import { PAGE_SIZE } from "./types";
 
 /**
+ * Hard upper bound on a single CSV export. Per dispatch §14.3. Enforced
+ * in app layer (the DB doesn't know about export semantics).
+ */
+export const PAID_EXPORT_MAX_ROWS = 10_000;
+/** Trial customers can export this many records CUMULATIVELY over their trial. */
+export const TRIAL_EXPORT_CUMULATIVE_CAP = 25;
+
+/**
  * Fetch one page of classified_records for the current authenticated
  * customer, joined to businesses + locations + states for display.
  *
@@ -297,4 +305,189 @@ export async function fetchDataSourceHealthMap(): Promise<StateHealthMap> {
     map.set(r.state_id, entry);
   }
   return map;
+}
+
+/**
+ * Fetch up to `limit` records matching the given filters for CSV export.
+ * Same join + filter + sort as fetchDashboardPage, but no cursor — exports
+ * pull a single bounded batch. RLS scopes to the customer's accessible
+ * states.
+ *
+ * Returns up to `limit` rows; caller is responsible for enforcing the
+ * trial-vs-paid cap before calling.
+ */
+export async function fetchAllRecordsForExport(args: {
+  filters: FilterState;
+  limit: number;
+}): Promise<DashboardRecord[]> {
+  if (args.limit <= 0) return [];
+
+  const supabase = await createClient();
+  const { filters } = args;
+
+  let query = supabase
+    .from("classified_records")
+    .select(
+      `
+      id,
+      classification_version,
+      license_record_type,
+      icp_relevance,
+      business_archetype,
+      on_premises,
+      off_premises,
+      beverage_scope,
+      signal_strength,
+      signal_strength_reason,
+      notes,
+      classified_at,
+      state_id,
+      businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
+      locations ( id, normalized_address, street, city, state_code, zip ),
+      states ( state_code )
+    `,
+    );
+
+  if (filters.states.length > 0) {
+    const { data: stateRows } = await supabase
+      .from("states")
+      .select("id, state_code")
+      .in("state_code", filters.states);
+    const stateIds = (stateRows ?? []).map((r) => r.id);
+    if (stateIds.length === 0) return [];
+    query = query.in("state_id", stateIds);
+  }
+
+  if (filters.licenseTypes.length > 0) {
+    query = query.in("license_record_type", filters.licenseTypes);
+  }
+  if (filters.signalStrengths.length > 0) {
+    query = query.in("signal_strength", filters.signalStrengths);
+  }
+  if (filters.businessArchetypes.length > 0) {
+    query = query.in("business_archetype", filters.businessArchetypes);
+  }
+  if (filters.daysWindow !== null) {
+    const threshold = new Date(
+      Date.now() - filters.daysWindow * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    query = query.gte("classified_at", threshold);
+  }
+
+  const ascending = filters.sort === "oldest_first";
+  query = query
+    .order("classified_at", { ascending })
+    .order("id", { ascending })
+    .limit(args.limit);
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`fetchAllRecordsForExport failed: ${error.message}`);
+  }
+
+  const rows = (data ?? []) as unknown as Array<
+    Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel"> & {
+      businesses: DashboardRecord["business"];
+      locations: DashboardRecord["location"];
+      states: { state_code: string | null } | null;
+    }
+  >;
+
+  return rows.map((r) => ({
+    id: r.id,
+    classification_version: r.classification_version,
+    license_record_type: r.license_record_type,
+    icp_relevance: r.icp_relevance ?? [],
+    business_archetype: r.business_archetype,
+    on_premises: r.on_premises,
+    off_premises: r.off_premises,
+    beverage_scope: r.beverage_scope,
+    signal_strength: r.signal_strength,
+    signal_strength_reason: r.signal_strength_reason,
+    notes: r.notes,
+    classified_at: r.classified_at,
+    state_id: r.state_id,
+    state_code: r.states?.state_code ?? null,
+    data_source_channel: null,
+    business: r.businesses,
+    location: r.locations,
+  }));
+}
+
+/**
+ * Sum row_count across csv_export_log for the current customer. Used to
+ * enforce the trial cumulative cap — every export they've already taken
+ * counts against the 25 limit.
+ *
+ * RLS limits SELECT to the customer's own rows (migration 007), so the
+ * SUM is automatically scoped. Returns 0 if no prior exports.
+ */
+export async function fetchCumulativeExportRowCount(
+  customerId: string,
+): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("csv_export_log")
+    .select("row_count")
+    .eq("customer_id", customerId);
+
+  if (error) {
+    throw new Error(`fetchCumulativeExportRowCount failed: ${error.message}`);
+  }
+  const rows = (data ?? []) as Array<{ row_count: number }>;
+  return rows.reduce((sum, r) => sum + (r.row_count ?? 0), 0);
+}
+
+/**
+ * Computes the customer's export quota state for the FeedFooter. Returns
+ * tier (or null for trial), and for trial customers, the cumulative
+ * counter + cap. Single query for the trial path; no extra fetch for
+ * paid customers (cap is constant).
+ */
+export type ExportStatus = {
+  /** True if the customer is on the free trial (no current_tier). */
+  isTrial: boolean;
+  /**
+   * For trial customers: cumulative rows exported so far. Undefined for
+   * paid customers (no cumulative limit).
+   */
+  alreadyExported?: number;
+  /**
+   * Trial: TRIAL_EXPORT_CUMULATIVE_CAP. Paid: PAID_EXPORT_MAX_ROWS.
+   * Same constants the route handler uses.
+   */
+  cap: number;
+  /** True if customer has any quota left. */
+  canExport: boolean;
+};
+
+export async function fetchExportStatus(): Promise<ExportStatus> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: false };
+  }
+
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, current_tier")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!customer) {
+    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: false };
+  }
+
+  if (customer.current_tier) {
+    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: true };
+  }
+
+  const alreadyExported = await fetchCumulativeExportRowCount(customer.id);
+  return {
+    isTrial: true,
+    alreadyExported,
+    cap: TRIAL_EXPORT_CUMULATIVE_CAP,
+    canExport: alreadyExported < TRIAL_EXPORT_CUMULATIVE_CAP,
+  };
 }
