@@ -8,6 +8,7 @@ import {
   fetchCustomerContext,
   fetchDashboardPage,
   fetchDataSourceHealthMap,
+  fetchExportStatus,
 } from "@/lib/dashboard/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -88,11 +89,12 @@ export default async function DashboardPage({
   const cursor =
     typeof resolvedSearchParams.cursor === "string" ? resolvedSearchParams.cursor : null;
 
-  const [context, accessibleStateCodes, page, healthMap] = await Promise.all([
+  const [context, accessibleStateCodes, page, healthMap, exportStatus] = await Promise.all([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
     fetchDashboardPage({ filters, cursor }),
     fetchDataSourceHealthMap(),
+    fetchExportStatus(),
   ]);
 
   return (
@@ -103,7 +105,12 @@ export default async function DashboardPage({
       accessibleStateCodes={accessibleStateCodes}
     >
       <DegradedStateBanner healthMap={healthMap} />
-      <Feed page={page} filters={filters} healthMap={healthMap} />
+      <Feed
+        page={page}
+        filters={filters}
+        healthMap={healthMap}
+        exportStatus={exportStatus}
+      />
     </AppShell>
   );
 }
