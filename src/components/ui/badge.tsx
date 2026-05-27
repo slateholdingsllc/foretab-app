@@ -5,34 +5,57 @@ import { cn } from "@/lib/utils";
  * Minimal Badge primitive — no Radix dependency. Used for tier label,
  * trial countdown, signal-strength pills, and any small status chip.
  *
+ * Existing variant API preserved: default | brand | hot | warm | cold |
+ * urgent | outline. Restyled to use the new tokens and a Geist Mono
+ * cap-letterform — badges read as machine output (tabular, deliberate),
+ * matching the brand sheet's mono-eyebrow pattern.
+ *
  * Variants:
- *   - default: neutral graphite
- *   - brand:   Foretab electric blue (#2A7BFF surface)
- *   - hot:     warm red — high-intent licensing signal
- *   - warm:    amber — medium-intent
- *   - cold:    cool gray — low-intent
- *   - urgent:  alert red for trial-expiry countdowns
- *   - outline: bordered, no fill (for placeholders and "coming soon")
+ *   - default: neutral surface-2 — generic tag
+ *   - brand:   accent fill — primary state / "Live" / tier highlight
+ *   - hot:     destructive-tinted — high-intent licensing signal
+ *   - warm:    warning-tinted — medium-intent / approaching cutoff
+ *   - cold:    muted-text outline — low-intent / archived
+ *   - urgent:  solid destructive — trial-expiry, errors
+ *   - outline: bordered-only — placeholders, "coming soon"
+ *   - soft:    accent-tint — secondary accent mention (e.g. tier chip)
+ *
+ * `soft` is new — useful for inline accent mentions that don't warrant
+ * the full filled `brand` treatment.
  */
 type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
-  variant?: "default" | "brand" | "hot" | "warm" | "cold" | "urgent" | "outline";
+  variant?:
+    | "default"
+    | "brand"
+    | "hot"
+    | "warm"
+    | "cold"
+    | "urgent"
+    | "outline"
+    | "soft";
 };
 
 const VARIANT_CLASSES: Record<NonNullable<BadgeProps["variant"]>, string> = {
-  default: "bg-secondary text-secondary-foreground",
+  default: "bg-secondary text-foreground-2",
   brand: "bg-primary text-primary-foreground",
-  hot: "bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-100",
-  warm: "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100",
-  cold: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  urgent: "bg-red-600 text-white",
-  outline: "border border-input bg-transparent text-muted-foreground",
+  hot: "bg-destructive-tint text-destructive",
+  warm: "bg-warning-tint text-warning",
+  cold: "bg-secondary text-foreground-muted",
+  urgent: "bg-destructive text-destructive-foreground",
+  outline: "border border-input bg-transparent text-foreground-muted",
+  soft: "bg-accent-tint text-primary",
 };
 
-export function Badge({ variant = "default", className, ...props }: BadgeProps) {
+export function Badge({
+  variant = "default",
+  className,
+  ...props
+}: BadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
+        // Geist Mono · uppercase · tracked — reads as machine output.
+        "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase leading-snug tracking-[0.06em]",
         VARIANT_CLASSES[variant],
         className,
       )}
