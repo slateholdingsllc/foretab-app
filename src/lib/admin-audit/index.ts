@@ -45,6 +45,27 @@ export async function writeAdminAudit(input: AdminAuditInput): Promise<void> {
     user_agent: input.userAgent ?? null,
   });
   if (error) {
+    // Log the full structured error to stderr BEFORE throwing. Vercel
+    // runtime logs truncate long thrown error messages — for the Task 21
+    // SSO-bootstrap 401 we only saw "[admin-audit] failed..." in the
+    // log line, which obscured an env-var misconfiguration. Logging the
+    // structured object separately ensures code/message/details/hint are
+    // all captured even when the thrown message gets clipped.
+    console.error(
+      "[admin-audit] insert failed:",
+      JSON.stringify(
+        {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          action: input.action,
+          jti: input.jti,
+        },
+        null,
+        2,
+      ),
+    );
     throw new Error(`[admin-audit] failed to write audit row: ${error.message}`);
   }
 }
