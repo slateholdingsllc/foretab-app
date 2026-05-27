@@ -43,12 +43,16 @@ export async function updateSession(request: NextRequest) {
 
   // Route gating: unauthenticated users get redirected to /login when they
   // try to access protected routes. Public auth routes stay accessible.
+  // /admin is excluded from customer-Supabase-Auth gating — the (admin)
+  // route group enforces its own operator session via cookie established by
+  // /admin/sso/start. See src/lib/admin-session/index.ts.
   const publicPaths = [
     "/login",
     "/signup",
     "/verify-email",
     "/reset-password",
     "/auth/callback",
+    "/admin",
   ];
   const isPublic = publicPaths.some((p) => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === "/";
