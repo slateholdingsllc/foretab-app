@@ -1,24 +1,31 @@
 import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
 import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { SavedFilter } from "@/lib/dashboard/saved-filters";
 import type { FilterState } from "@/lib/dashboard/types";
 import { SavedFiltersMenu } from "./saved-filters-menu";
 import { TrialBadge } from "./trial-badge";
 
 /**
- * Top bar of the dashboard chrome. Brand mark left; tier + trial badges
- * center-right; saved-views menu + account link + email + sign-out right.
+ * Top bar of the dashboard chrome.
  *
- * The Account link is intentionally top-level (not behind a menu) to
- * satisfy the legal reviewer's parallel principle: cancel/manage CTAs
- * must be equally findable as upgrade CTAs.
+ * Layout (left → right):
+ *   - BrandMark + "foretab" wordmark, links home
+ *   - flex spacer
+ *   - SavedFiltersMenu (Views)
+ *   - tier soft-accent chip
+ *   - TrialBadge (only renders when on trial)
+ *   - email (sm: and up)
+ *   - ThemeToggle (Light · Dark · System)
+ *   - Account link
+ *   - Sign-out button
  *
- * SavedFiltersMenu is the only client component in this chrome — needed
- * for the dropdown open/close + save form. It accepts the current filters
- * (from URL) so the Save action captures what the customer is looking at
- * right now.
+ * The Account link stays top-level (not behind a menu) to satisfy the
+ * legal reviewer's parallel principle: cancel/manage CTAs must be as
+ * findable as upgrade CTAs.
  */
 export function TopBar({
   email,
@@ -34,10 +41,17 @@ export function TopBar({
   currentFilters: FilterState;
 }) {
   return (
-    <header className="border-b border-input bg-card">
-      <div className="flex h-14 items-center gap-4 px-6">
-        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="text-lg">Foretab</span>
+    <header className="border-b border-border bg-card">
+      <div className="flex h-14 items-center gap-3 px-5">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-foreground transition-opacity hover:opacity-85"
+          aria-label="Foretab home"
+        >
+          <BrandMark className="size-5" />
+          <span className="text-[15px] font-medium tracking-[-0.02em]">
+            foretab
+          </span>
         </Link>
 
         <div className="flex flex-1 items-center justify-end gap-3">
@@ -47,7 +61,7 @@ export function TopBar({
           />
 
           {currentTier ? (
-            <Badge variant="default" className="capitalize">
+            <Badge variant="soft" className="capitalize">
               {currentTier.replace(/_/g, " ")}
             </Badge>
           ) : null}
@@ -55,12 +69,16 @@ export function TopBar({
           <TrialBadge trialExpiresAt={trialExpiresAt} />
 
           {email ? (
-            <span className="hidden text-sm text-muted-foreground sm:inline">{email}</span>
+            <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
+              {email}
+            </span>
           ) : null}
+
+          <ThemeToggle />
 
           <Link
             href="/account"
-            className="text-sm font-medium underline-offset-4 hover:underline"
+            className="text-sm font-medium tracking-[-0.005em] text-foreground-2 underline-offset-4 hover:text-foreground hover:underline"
           >
             Account
           </Link>
