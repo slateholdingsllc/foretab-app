@@ -4,19 +4,19 @@
  * copy used at trial-expired display + renewal reminder emails (the
  * "recurring charge amount" Colorado SB25-145 / Terms § 8 requires).
  *
- * Annual = 12 monthly × 10% off (rounded). When prices change, update
- * BOTH this file AND foretab-engine docs/pricing.md, AND any Stripe
- * product configuration. Cross-repo drift here = legally-bad billing
- * disclosures.
+ * Annual framing: "2 months free" — annual is exactly 10× monthly
+ * (~16.7% off vs 12× monthly). When prices change, update BOTH this
+ * file AND foretab-engine docs/pricing.md, AND any Stripe product
+ * configuration. Cross-repo drift here = legally-bad billing disclosures.
  */
 
 export type Tier = "single_state" | "multi_state" | "all_access";
 export type BillingPeriod = "monthly" | "annual";
 
 export const TIER_PRICING: Record<Tier, Record<BillingPeriod, number>> = {
-  single_state: { monthly: 79, annual: 853 },
-  multi_state: { monthly: 179, annual: 1933 },
-  all_access: { monthly: 349, annual: 3769 },
+  single_state: { monthly: 79, annual: 790 },
+  multi_state: { monthly: 249, annual: 2490 },
+  all_access: { monthly: 399, annual: 3990 },
 };
 
 export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
