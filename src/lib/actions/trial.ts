@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getExcludedBusinessStates } from "@/lib/excluded-states";
 import { logGateRejection } from "@/lib/gate-rejections";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const TRIAL_LENGTH_DAYS = 7;
@@ -67,6 +68,16 @@ export type TrialActionResult = { ok: true } | { ok: false; error: string };
  * If business_state is already set on the customers row from a prior
  * visit, this action re-validates it against the CURRENT excluded list
  * — catches the "excluded list expanded since signup" case.
+ *
+ * Auth + read use the user-authenticated client (RLS enforces "own
+ * customer row" scoping). The provisioning writes (business_state
+ * UPDATE, trials INSERT, customer_states INSERT) use the service-role
+ * admin client because per the Phase 2 Task 9 migrations, those tables
+ * are service-role-write-only by design — the authenticated grants are
+ * SELECT-only. Once the auth check + customer-row resolution + legal
+ * gate have all run, the writes are server-side privileged operations,
+ * not "user updates own row" — so the trust boundary is the action
+ * itself, not the row-level policy.
  */
 export async function selectTrialState(formData: FormData): Promise<TrialActionResult> {
   const trialStateId = String(formData.get("state_id") ?? "");
@@ -161,9 +172,18 @@ export async function selectTrialState(formData: FormData): Promise<TrialActionR
     };
   }
 
+  // -----------------------------------------------------------------
+  // Past the gate. From here on, writes use the service-role admin
+  // client. The authenticated user has SELECT-only grants on trials +
+  // customer_states (see migrations 20260524000003 + ...000004); the
+  // provisioning row creation is a server-side privileged operation,
+  // gated by the auth + legal checks above, not by row-level policy.
+  // -----------------------------------------------------------------
+  const admin = createAdminClient();
+
   // Write business_state durably if it changed (or was newly collected).
   if (finalBusinessState !== customer.business_state) {
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
       .from("customers")
       .update({ business_state: finalBusinessState })
       .eq("id", customer.id);
@@ -176,15 +196,12 @@ export async function selectTrialState(formData: FormData): Promise<TrialActionR
     }
   }
 
-  // -----------------------------------------------------------------
-  // Past the gate — proceed with trial provisioning.
-  // -----------------------------------------------------------------
   const expiresAt = new Date(
     Date.now() + TRIAL_LENGTH_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
 
   // Create trial.
-  const { data: trial, error: trialError } = await supabase
+  const { data: trial, error: trialError } = await admin
     .from("trials")
     .insert({
       customer_id: customer.id,
@@ -199,7 +216,7 @@ export async function selectTrialState(formData: FormData): Promise<TrialActionR
   }
 
   // Grant state access.
-  const { error: csError } = await supabase.from("customer_states").insert({
+  const { error: csError } = await admin.from("customer_states").insert({
     customer_id: customer.id,
     state_id: trialStateId,
     granted_via: "trial",
@@ -210,14 +227,17 @@ export async function selectTrialState(formData: FormData): Promise<TrialActionR
     return { ok: false, error: csError.message };
   }
 
-  // Seed default saved filters.
+  // Seed default saved filters. customer_saved_filters does allow
+  // authenticated INSERTs on own rows, but we use admin here for
+  // consistency with the rest of the provisioning block and to avoid
+  // a partial-state surprise if RLS happens to reject one of the rows.
   const filterRows = DEFAULT_FILTERS.map((f) => ({
     customer_id: customer.id,
     name: f.name,
     filter_config: f.filter_config,
     is_default: true,
   }));
-  await supabase.from("customer_saved_filters").insert(filterRows);
+  await admin.from("customer_saved_filters").insert(filterRows);
   // Don't fail the trial flow on saved-filter errors — they're nice-to-have.
 
   revalidatePath("/", "layout");
