@@ -150,7 +150,7 @@ export type DashboardRecord = {
   } | null;
 };
 
-export type SortOrder = "newest_first" | "oldest_first" | "signal_strength_desc";
+export type SortOrder = "newest_first" | "oldest_first";
 
 export type FilterState = {
   states: string[]; // state codes the customer wants in scope, or [] = all accessible
