@@ -46,12 +46,18 @@ export type LostReason =
   | "other";
 
 /**
- * Signal-strength v2 vocabulary lands in Code Agent A's migration
- * 20260528000001_signal_strength_rename.sql. Until that's observable and
- * v1 rows are backfilled (or the union of v1+v2 is locked), this stays
- * `string` to keep the data contract from blocking on cross-agent timing.
+ * Signal-strength v2 vocabulary per Code Agent A's
+ * 20260528000001_signal_strength_rename.sql. Verified 2026-05-29 against
+ * the live foretab-engine DB: column is TEXT, exact casing is the literal
+ * below, 539 classified_records rows total, zero v1 rows remaining
+ * (Britt confirmed coexistence is moot).
+ *
+ * Semantic mapping vs the v1 pack assumption (hot/warm/cold):
+ *   New         high-intent freshly-classified signal (was: hot)
+ *   Established proven-pattern signal              (was: warm)
+ *   Dormant     inactive / cold                    (was: cold)
  */
-export type SignalStrength = string;
+export type SignalStrength = "New" | "Established" | "Dormant";
 
 // ============================================================================
 // Row types — one per table
