@@ -1,11 +1,22 @@
 import {
   type BusinessArchetype,
   DEFAULT_FILTER_STATE,
+  type DispositionTab,
   type FilterState,
   type LicenseRecordType,
   type SignalStrength,
   type SortOrder,
 } from "./types";
+
+const VALID_DISPOSITION_TABS = new Set<DispositionTab>([
+  "all",
+  "uncontacted",
+  "saved",
+  "working",
+  "won",
+  "lost",
+  "skip",
+]);
 
 /**
  * Shape of a row read from public.customer_saved_filters. The
@@ -129,6 +140,15 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
   // to false so they keep the sellable-cohort view they were saved against.
   const showInactive = r.showInactive === true || r.show_inactive === true;
 
+  // Legacy rows (pre-disposition-wire) don't have dispositionTab — default
+  // to "all" so old saved views keep their wide-open behavior.
+  const dispositionTabRaw = r.dispositionTab ?? r.disposition_tab;
+  const dispositionTab: DispositionTab =
+    typeof dispositionTabRaw === "string" &&
+    VALID_DISPOSITION_TABS.has(dispositionTabRaw as DispositionTab)
+      ? (dispositionTabRaw as DispositionTab)
+      : DEFAULT_FILTER_STATE.dispositionTab;
+
   return {
     states: cleanStates,
     licenseTypes,
@@ -137,6 +157,7 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
     daysWindow,
     sort,
     showInactive,
+    dispositionTab,
   };
 }
 

@@ -94,7 +94,7 @@ function recordRow(r: DashboardRecord): string[] {
     source,
     r.notes ?? "",
     r.customer_status ?? "",
-    r.disposition_status ?? "",
+    r.disposition?.status ?? "",
   ];
 }
 

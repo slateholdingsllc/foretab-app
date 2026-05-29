@@ -114,6 +114,10 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       daysWindow: days ? Number.parseInt(days, 10) : null,
       sort: (sort as FilterState["sort"]) ?? "newest_first",
       showInactive,
+      // Disposition tab is owned by StatusTabs (separate URL param `?tab=`),
+      // not the sidebar form. Preserve whatever's currently in the URL so
+      // submitting the sidebar form doesn't reset the tab selection.
+      dispositionTab: current.dispositionTab,
     };
 
     const params = serializeFiltersToSearchParams(next);

@@ -1,11 +1,30 @@
 import {
   type BusinessArchetype,
   DEFAULT_FILTER_STATE,
+  type DispositionTab,
   type FilterState,
   type LicenseRecordType,
   type SignalStrength,
   type SortOrder,
 } from "./types";
+
+const VALID_DISPOSITION_TABS: DispositionTab[] = [
+  "all",
+  "uncontacted",
+  "saved",
+  "working",
+  "won",
+  "lost",
+  "skip",
+];
+
+function parseDispositionTab(raw: string | undefined): DispositionTab {
+  if (!raw) return DEFAULT_FILTER_STATE.dispositionTab;
+  if ((VALID_DISPOSITION_TABS as string[]).includes(raw)) {
+    return raw as DispositionTab;
+  }
+  return DEFAULT_FILTER_STATE.dispositionTab;
+}
 
 /**
  * URL search params <-> FilterState serialization. URL is the source of
@@ -105,6 +124,7 @@ export function parseFiltersFromSearchParams(
     daysWindow: parseDaysWindow(get("days")),
     sort: parseSort(get("sort")),
     showInactive: get("inactive") === "1",
+    dispositionTab: parseDispositionTab(get("tab")),
   };
 }
 
@@ -123,12 +143,23 @@ export function serializeFiltersToSearchParams(filters: FilterState): URLSearchP
   if (filters.daysWindow !== null) params.set("days", String(filters.daysWindow));
   if (filters.sort !== DEFAULT_FILTER_STATE.sort) params.set("sort", filters.sort);
   if (filters.showInactive) params.set("inactive", "1");
+  if (filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab) {
+    params.set("tab", filters.dispositionTab);
+  }
   return params;
 }
 
 /**
  * Detects whether any filter is non-default — used to decide whether to
- * show a "Clear filters" link.
+ * show a "Clear filters" link AND to pick the empty-state copy
+ * ("no matches" vs "no records exist").
+ *
+ * showInactive intentionally NOT counted — it broadens results rather
+ * than narrowing, so an empty page with showInactive=true is still
+ * "no records," not "no matches." The Clear button in FilterForm handles
+ * showInactive inline.
+ *
+ * dispositionTab IS counted — non-"all" values narrow.
  */
 export function hasActiveFilters(filters: FilterState): boolean {
   return (
@@ -137,6 +168,7 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.signalStrengths.length > 0 ||
     filters.businessArchetypes.length > 0 ||
     filters.daysWindow !== null ||
-    filters.sort !== DEFAULT_FILTER_STATE.sort
+    filters.sort !== DEFAULT_FILTER_STATE.sort ||
+    filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab
   );
 }

@@ -1,4 +1,7 @@
-import type { DispositionStatus } from "@/lib/disposition/types";
+import type {
+  BusinessDisposition,
+  DispositionStatus,
+} from "@/lib/disposition/types";
 import { createClient } from "@/lib/supabase/server";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
@@ -46,6 +49,33 @@ async function fetchProtectedDispositionedBusinessIds(): Promise<string[]> {
 }
 
 /**
+ * Fetch business_ids the current customer has dispositioned with a given
+ * status, or all dispositioned business_ids when `status = "any"`. Used by
+ * the StatusTabs filter axis:
+ *   tab in {saved, working, won, lost, skip}  →  status = that value
+ *   tab = "uncontacted"                       →  status = "any" (then NOT IN)
+ *   tab = "all"                               →  not called
+ * RLS scopes to current_customer_id() so no explicit customer_id filter.
+ */
+async function fetchBusinessIdsByDispositionStatus(
+  status: DispositionStatus | "any",
+): Promise<string[]> {
+  const supabase = await createClient();
+  let q = supabase.from("customer_business_disposition").select("business_id");
+  if (status !== "any") {
+    q = q.eq("status", status);
+  }
+  const { data, error } = await q;
+  if (error) {
+    console.error("[fetchBusinessIdsByDispositionStatus] query failed:", error);
+    return [];
+  }
+  return ((data ?? []) as Array<{ business_id: string }>).map(
+    (r) => r.business_id,
+  );
+}
+
+/**
  * Build the customer_status hide predicate as a PostgREST .or() argument.
  * Combines the null-safe Inactive hide (kept for Task 3 contract) with the
  * Task 4 dispositioned-override: any record whose parent business has a
@@ -67,35 +97,32 @@ function buildCustomerStatusOrClause(
 
 /**
  * Fetch dispositions for a given set of business_ids in one query and
- * return a Map<business_id, status>. RLS scopes to the current customer.
- * Used to enrich each returned DashboardRecord with disposition_status
- * after the main page fetch.
+ * return a Map<business_id, BusinessDisposition>. RLS scopes to the current
+ * customer. Used to enrich each returned DashboardRecord with the full
+ * disposition row after the main page fetch.
  *
  * Includes ALL dispositioned statuses (not just the protected set) — the
  * card UI may want to render an indicator for `skip` too even though skip
  * doesn't trigger the override.
  */
-async function fetchDispositionStatusByBusinessId(
+async function fetchDispositionsByBusinessId(
   businessIds: string[],
-): Promise<Map<string, DispositionStatus>> {
-  const out = new Map<string, DispositionStatus>();
+): Promise<Map<string, BusinessDisposition>> {
+  const out = new Map<string, BusinessDisposition>();
   if (businessIds.length === 0) return out;
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("customer_business_disposition")
-    .select("business_id, status")
+    .select("*")
     .in("business_id", businessIds);
 
   if (error) {
-    console.error("[fetchDispositionStatusByBusinessId] query failed:", error);
+    console.error("[fetchDispositionsByBusinessId] query failed:", error);
     return out;
   }
-  for (const r of (data ?? []) as Array<{
-    business_id: string;
-    status: DispositionStatus;
-  }>) {
-    out.set(r.business_id, r.status);
+  for (const r of (data ?? []) as BusinessDisposition[]) {
+    out.set(r.business_id, r);
   }
   return out;
 }
@@ -212,6 +239,32 @@ export async function fetchDashboardPage(args: {
     query = query.or(customerStatusOr);
   }
 
+  // StatusTabs filter axis. "all" = no predicate. "uncontacted" =
+  // business_id NOT IN any-dispositioned-set. Specific status =
+  // business_id IN that-status-set; empty set short-circuits to no
+  // results.
+  if (filters.dispositionTab !== "all") {
+    if (filters.dispositionTab === "uncontacted") {
+      const dispositionedIds =
+        await fetchBusinessIdsByDispositionStatus("any");
+      if (dispositionedIds.length > 0) {
+        query = query.not(
+          "business_id",
+          "in",
+          `(${dispositionedIds.join(",")})`,
+        );
+      }
+    } else {
+      const tabIds = await fetchBusinessIdsByDispositionStatus(
+        filters.dispositionTab,
+      );
+      if (tabIds.length === 0) {
+        return { records: [], nextCursor: null, totalCount: 0 };
+      }
+      query = query.in("business_id", tabIds);
+    }
+  }
+
   // -- Sort + cursor --
 
   const ascending = filters.sort === "oldest_first";
@@ -266,7 +319,7 @@ export async function fetchDashboardPage(args: {
     signal_strength: r.signal_strength,
     signal_strength_reason: r.signal_strength_reason,
     customer_status: r.customer_status,
-    disposition_status: null,
+    disposition: null,
     notes: r.notes,
     classified_at: r.classified_at,
     state_id: r.state_id,
@@ -277,18 +330,18 @@ export async function fetchDashboardPage(args: {
     location: r.locations,
   }));
 
-  // Enrich with disposition_status. One extra query keyed by the page's
-  // distinct business_ids; null for any record whose parent business has
-  // no disposition row.
+  // Enrich with the full disposition row. One extra query keyed by the
+  // page's distinct business_ids; null for any record whose parent business
+  // has no disposition row.
   const pageBusinessIds = Array.from(
     new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
   );
   const dispositionByBusinessId =
-    await fetchDispositionStatusByBusinessId(pageBusinessIds);
+    await fetchDispositionsByBusinessId(pageBusinessIds);
   for (const record of records) {
     const bid = record.business?.id;
     if (bid) {
-      record.disposition_status = dispositionByBusinessId.get(bid) ?? null;
+      record.disposition = dispositionByBusinessId.get(bid) ?? null;
     }
   }
 
@@ -518,6 +571,28 @@ export async function fetchAllRecordsForExport(args: {
     query = query.or(customerStatusOr);
   }
 
+  // Same StatusTabs filter as the page query — exports match what the
+  // rep sees on screen for the currently selected tab.
+  if (filters.dispositionTab !== "all") {
+    if (filters.dispositionTab === "uncontacted") {
+      const dispositionedIds =
+        await fetchBusinessIdsByDispositionStatus("any");
+      if (dispositionedIds.length > 0) {
+        query = query.not(
+          "business_id",
+          "in",
+          `(${dispositionedIds.join(",")})`,
+        );
+      }
+    } else {
+      const tabIds = await fetchBusinessIdsByDispositionStatus(
+        filters.dispositionTab,
+      );
+      if (tabIds.length === 0) return [];
+      query = query.in("business_id", tabIds);
+    }
+  }
+
   const ascending = filters.sort === "oldest_first";
   query = query
     .order("classified_at", { ascending })
@@ -549,7 +624,7 @@ export async function fetchAllRecordsForExport(args: {
     signal_strength: r.signal_strength,
     signal_strength_reason: r.signal_strength_reason,
     customer_status: r.customer_status,
-    disposition_status: null,
+    disposition: null,
     notes: r.notes,
     classified_at: r.classified_at,
     state_id: r.state_id,
@@ -559,18 +634,18 @@ export async function fetchAllRecordsForExport(args: {
     location: r.locations,
   }));
 
-  // Enrich with disposition_status — same pattern as fetchDashboardPage.
+  // Enrich with the full disposition row — same pattern as fetchDashboardPage.
   // Even on a 10K export this is one cheap query against the customer's own
   // dispositions table (typically small).
   const exportBusinessIds = Array.from(
     new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
   );
   const dispositionByBusinessId =
-    await fetchDispositionStatusByBusinessId(exportBusinessIds);
+    await fetchDispositionsByBusinessId(exportBusinessIds);
   for (const record of records) {
     const bid = record.business?.id;
     if (bid) {
-      record.disposition_status = dispositionByBusinessId.get(bid) ?? null;
+      record.disposition = dispositionByBusinessId.get(bid) ?? null;
     }
   }
   return records;
