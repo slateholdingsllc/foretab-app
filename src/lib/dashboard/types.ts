@@ -8,7 +8,10 @@
  * (foretab-engine, not this PR).
  */
 
-import type { DispositionStatus } from "@/lib/disposition/types";
+import type {
+  BusinessDisposition,
+  DispositionStatus,
+} from "@/lib/disposition/types";
 
 export type DataSourceChannel =
   | "socrata_api"
@@ -121,13 +124,15 @@ export type DashboardRecord = {
   signal_strength_reason: string | null;
   customer_status: CustomerStatus | null;
   /**
-   * Current customer's disposition status for this record's parent business,
-   * or null if uncontacted (no disposition row). Joined in-app, not via
-   * PostgREST embed — the source table lives in disposition/ which is RLS-
-   * scoped to current_customer_id() so it can't be embedded cleanly from
-   * classified_records.
+   * Current customer's disposition row for this record's parent business,
+   * or null if uncontacted (no row). Joined in-app from
+   * customer_business_disposition, not via PostgREST embed (that table is
+   * RLS-scoped to current_customer_id() and doesn't embed cleanly from
+   * classified_records). Carries the full row so DispositionRow / DetailPanel
+   * can render notes / follow-ups / last-touch without a second lookup per
+   * card.
    */
-  disposition_status: DispositionStatus | null;
+  disposition: BusinessDisposition | null;
   notes: string | null;
   classified_at: string; // ISO timestamp
   state_id: string;
@@ -152,6 +157,14 @@ export type DashboardRecord = {
 
 export type SortOrder = "newest_first" | "oldest_first";
 
+/**
+ * StatusTabs filter axis. Mirrors the StatusTabValue type from
+ * components/dashboard/disposition/status-tabs.tsx (DispositionStatus | "all")
+ * — inlined here to avoid circular type imports between the dashboard data
+ * layer and the disposition component layer.
+ */
+export type DispositionTab = DispositionStatus | "all";
+
 export type FilterState = {
   states: string[]; // state codes the customer wants in scope, or [] = all accessible
   licenseTypes: LicenseRecordType[];
@@ -165,6 +178,13 @@ export type FilterState = {
    * customer_status predicate is applied.
    */
   showInactive: boolean;
+  /**
+   * Active StatusTabs selection. "all" = no disposition predicate.
+   * "uncontacted" = records whose business has no disposition row. Any
+   * other DispositionStatus = records whose business has a disposition
+   * with that exact status.
+   */
+  dispositionTab: DispositionTab;
 };
 
 export const DEFAULT_FILTER_STATE: FilterState = {
@@ -175,6 +195,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   daysWindow: null,
   sort: "newest_first",
   showInactive: false,
+  dispositionTab: "all",
 };
 
 export const PAGE_SIZE = 50;

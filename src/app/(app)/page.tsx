@@ -1,7 +1,21 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { DegradedStateBanner } from "@/components/dashboard/degraded-state-banner";
+import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
+import { DensityProvider } from "@/components/dashboard/disposition/density-provider";
+import { RecentlyViewed } from "@/components/dashboard/disposition/recently-viewed";
+import type { StatusTabValue } from "@/components/dashboard/disposition/status-tabs";
 import { Feed } from "@/components/dashboard/feed";
+import {
+  getRecentlyViewed,
+  getStatusCounts,
+} from "@/lib/disposition/actions";
+// TodayPanel + Insights mounts are deferred: they require pulling from
+// today.queries.ts / insights.queries.ts which currently combine
+// "use server" with non-function const exports (HOT_LIKE_SIGNALS,
+// WARM_LIKE_SIGNALS). Next 15 rejects that at build. Tracked in the PR
+// description — flagged for Agent B to fix his file, then those two
+// panels get mounted in a follow-up PR.
 import { parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
 import {
   fetchAccessibleStateCodes,
@@ -90,15 +104,41 @@ export default async function DashboardPage({
   const cursor =
     typeof resolvedSearchParams.cursor === "string" ? resolvedSearchParams.cursor : null;
 
-  const [context, accessibleStateCodes, page, healthMap, exportStatus, savedFilters] =
-    await Promise.all([
-      fetchCustomerContext(),
-      fetchAccessibleStateCodes(),
-      fetchDashboardPage({ filters, cursor }),
-      fetchDataSourceHealthMap(),
-      fetchExportStatus(),
-      fetchSavedFilters(),
-    ]);
+  const [
+    context,
+    accessibleStateCodes,
+    page,
+    healthMap,
+    exportStatus,
+    savedFilters,
+    recentlyViewed,
+    statusCounts,
+  ] = await Promise.all([
+    fetchCustomerContext(),
+    fetchAccessibleStateCodes(),
+    fetchDashboardPage({ filters, cursor }),
+    fetchDataSourceHealthMap(),
+    fetchExportStatus(),
+    fetchSavedFilters(),
+    getRecentlyViewed(),
+    getStatusCounts(),
+  ]);
+
+  // StatusTabs counts. `all` mirrors what the worklist currently shows
+  // (totalCount under the active filter set). Specific statuses come
+  // straight from getStatusCounts. `uncontacted` is left undefined for
+  // now — the canonical formula (funnel.surfaced − sum of explicits)
+  // depends on getDispositionFunnel from insights.queries.ts, which is
+  // currently un-importable (see flag at top of file). StatusTabs hides
+  // missing counts gracefully.
+  const tabCounts: Partial<Record<StatusTabValue, number>> = {
+    all: page.totalCount ?? undefined,
+    saved: statusCounts.saved,
+    working: statusCounts.working,
+    won: statusCounts.won,
+    lost: statusCounts.lost,
+    skip: statusCounts.skip,
+  };
 
   return (
     <AppShell
@@ -110,12 +150,26 @@ export default async function DashboardPage({
       currentFilters={filters}
     >
       <DegradedStateBanner healthMap={healthMap} />
-      <Feed
-        page={page}
-        filters={filters}
-        healthMap={healthMap}
-        exportStatus={exportStatus}
-      />
+      {/* DensityProvider wraps the whole disposition area so any client
+          component below can call useDensity(). No consumers in this
+          drop yet — DispositionRow / RecordCard render identically — but
+          the provider's in place for the compact/comfortable toggle the
+          pack expects. */}
+      <DensityProvider>
+        <div className="flex flex-col gap-4">
+          <RecentlyViewed items={recentlyViewed} />
+          <DispositionTabsBar
+            active={filters.dispositionTab}
+            counts={tabCounts}
+          />
+          <Feed
+            page={page}
+            filters={filters}
+            healthMap={healthMap}
+            exportStatus={exportStatus}
+          />
+        </div>
+      </DensityProvider>
     </AppShell>
   );
 }

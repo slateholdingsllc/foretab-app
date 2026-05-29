@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getRecordSourceLabel } from "@/lib/dashboard/state-display";
 import type { DashboardRecord, StateHealthEntry } from "@/lib/dashboard/types";
 import { PROTECTED_DISPOSITION_STATUSES } from "@/lib/dashboard/types";
+import { DispositionRow } from "./disposition/disposition-row";
 import { FreshnessBadge } from "./freshness-badge";
 import { SignalBadge } from "./signal-badge";
 
@@ -61,11 +62,12 @@ export function RecordCard({
   // this lead but its license has flipped to Inactive). Without history we
   // can't show a true was-Active-now-Inactive transition arrow; this is
   // the practical signal that protects the rep from a silent vanish.
+  const dispositionStatus = record.disposition?.status ?? null;
   const showInactiveDispositionedWarning =
     record.customer_status === "Inactive" &&
-    record.disposition_status !== null &&
+    dispositionStatus !== null &&
     (PROTECTED_DISPOSITION_STATUSES as readonly string[]).includes(
-      record.disposition_status,
+      dispositionStatus,
     );
 
   return (
@@ -144,6 +146,20 @@ export function RecordCard({
           />
         </div>
       </CardContent>
+
+      {/* Disposition strip — Design's DispositionRow renders its own
+          surface-2 band with hairline top border. Skipped if the join
+          didn't resolve a business (no parent business_id to write
+          dispositions against). Notes is a single scratchpad string per
+          the contract, so noteCount is 0 or 1. onOpen is intentionally
+          unwired in this pass — DetailPanel wiring is a follow-up. */}
+      {business?.id ? (
+        <DispositionRow
+          businessId={business.id}
+          disposition={record.disposition}
+          noteCount={record.disposition?.notes ? 1 : 0}
+        />
+      ) : null}
     </Card>
   );
 }
