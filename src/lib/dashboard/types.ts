@@ -8,6 +8,8 @@
  * (foretab-engine, not this PR).
  */
 
+import type { DispositionStatus } from "@/lib/disposition/types";
+
 export type DataSourceChannel =
   | "socrata_api"
   | "pdf_parse"
@@ -63,6 +65,29 @@ export type BeverageScope =
 export type CustomerStatus = "Active" | "Pending" | "Suspended" | "Inactive";
 
 /**
+ * Disposition statuses that override the customer_status hide predicate.
+ * Records dispositioned with one of these statuses stay visible regardless
+ * of customer_status — so a lead the rep is actively pursuing never silently
+ * vanishes when its license flips to Inactive.
+ *
+ * `skip` is deliberately excluded: it's the rep's explicit "I don't want
+ * this" — forcing skipped records to stay visible would defeat the intent.
+ * Skipped records still surface in the disposition layer's Skipped tab.
+ *
+ * `uncontacted` is also excluded — it's the implicit no-row default, so a
+ * record with no disposition is not "protected".
+ */
+export const PROTECTED_DISPOSITION_STATUSES = [
+  "saved",
+  "working",
+  "won",
+  "lost",
+] as const satisfies ReadonlyArray<DispositionStatus>;
+
+export type ProtectedDispositionStatus =
+  (typeof PROTECTED_DISPOSITION_STATUSES)[number];
+
+/**
  * Shape returned by the dashboard query (joined view across
  * classified_records + businesses + locations + states). All joins are
  * LEFT JOINs because dedup may not have populated business_id /
@@ -80,6 +105,14 @@ export type DashboardRecord = {
   signal_strength: SignalStrength | null;
   signal_strength_reason: string | null;
   customer_status: CustomerStatus | null;
+  /**
+   * Current customer's disposition status for this record's parent business,
+   * or null if uncontacted (no disposition row). Joined in-app, not via
+   * PostgREST embed — the source table lives in disposition/ which is RLS-
+   * scoped to current_customer_id() so it can't be embedded cleanly from
+   * classified_records.
+   */
+  disposition_status: DispositionStatus | null;
   notes: string | null;
   classified_at: string; // ISO timestamp
   state_id: string;

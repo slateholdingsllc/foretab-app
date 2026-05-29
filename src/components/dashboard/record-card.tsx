@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getRecordSourceLabel } from "@/lib/dashboard/state-display";
 import type { DashboardRecord, StateHealthEntry } from "@/lib/dashboard/types";
+import { PROTECTED_DISPOSITION_STATUSES } from "@/lib/dashboard/types";
 import { FreshnessBadge } from "./freshness-badge";
 import { SignalBadge } from "./signal-badge";
 
@@ -55,9 +56,30 @@ export function RecordCard({
     dataSourceChannel: record.data_source_channel,
   });
 
+  // Task 4: surface a "License inactive" callout when a card is shown
+  // ONLY because of the protected-disposition override (rep is tracking
+  // this lead but its license has flipped to Inactive). Without history we
+  // can't show a true was-Active-now-Inactive transition arrow; this is
+  // the practical signal that protects the rep from a silent vanish.
+  const showInactiveDispositionedWarning =
+    record.customer_status === "Inactive" &&
+    record.disposition_status !== null &&
+    (PROTECTED_DISPOSITION_STATUSES as readonly string[]).includes(
+      record.disposition_status,
+    );
+
   return (
     <Card className="transition-colors hover:border-surface-3">
       <CardContent className="space-y-3 p-5">
+        {showInactiveDispositionedWarning ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="hot">License inactive</Badge>
+            <span className="text-xs text-foreground-2">
+              Still in your pipeline
+            </span>
+          </div>
+        ) : null}
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-0.5">
             <h3 className="truncate text-base font-medium leading-tight tracking-[-0.015em] text-foreground">

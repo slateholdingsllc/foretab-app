@@ -1,8 +1,9 @@
+import type { DispositionStatus } from "@/lib/disposition/types";
 import { createClient } from "@/lib/supabase/server";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
 import type { DashboardRecord, FilterState, PageResult } from "./types";
-import { PAGE_SIZE } from "./types";
+import { PAGE_SIZE, PROTECTED_DISPOSITION_STATUSES } from "./types";
 
 /**
  * Hard upper bound on a single CSV export. Per dispatch §14.3. Enforced
@@ -11,6 +12,93 @@ import { PAGE_SIZE } from "./types";
 export const PAID_EXPORT_MAX_ROWS = 10_000;
 /** Trial customers can export this many records CUMULATIVELY over their trial. */
 export const TRIAL_EXPORT_CUMULATIVE_CAP = 25;
+
+/**
+ * Fetch business_ids of the current customer's protected dispositions
+ * (saved/working/won/lost). These business_ids override the
+ * customer_status='Inactive' hide predicate so a lead the rep is actively
+ * pursuing never silently vanishes when its license flips to Inactive.
+ *
+ * RLS on customer_business_disposition scopes to current_customer_id(), so
+ * no .eq("customer_id", ...) is needed. Returns [] on auth error or empty
+ * result.
+ *
+ * Returns IDs as a string array, not a Set — the call sites pass them
+ * directly to PostgREST's .in.() filter via the OR string builder.
+ */
+async function fetchProtectedDispositionedBusinessIds(): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("customer_business_disposition")
+    .select("business_id")
+    .in("status", PROTECTED_DISPOSITION_STATUSES as unknown as string[]);
+
+  if (error) {
+    console.error(
+      "[fetchProtectedDispositionedBusinessIds] query failed:",
+      error,
+    );
+    return [];
+  }
+  return ((data ?? []) as Array<{ business_id: string }>).map(
+    (r) => r.business_id,
+  );
+}
+
+/**
+ * Build the customer_status hide predicate as a PostgREST .or() argument.
+ * Combines the null-safe Inactive hide (kept for Task 3 contract) with the
+ * Task 4 dispositioned-override: any record whose parent business has a
+ * protected disposition stays visible regardless of customer_status.
+ *
+ * Returns null when no predicate is needed (showInactive=true).
+ */
+function buildCustomerStatusOrClause(
+  showInactive: boolean,
+  protectedBusinessIds: string[],
+): string | null {
+  if (showInactive) return null;
+  const base = "customer_status.is.null,customer_status.neq.Inactive";
+  if (protectedBusinessIds.length === 0) return base;
+  // PostgREST .in.(...) accepts comma-separated UUIDs. UUIDs are
+  // hyphen-safe and don't need quoting.
+  return `${base},business_id.in.(${protectedBusinessIds.join(",")})`;
+}
+
+/**
+ * Fetch dispositions for a given set of business_ids in one query and
+ * return a Map<business_id, status>. RLS scopes to the current customer.
+ * Used to enrich each returned DashboardRecord with disposition_status
+ * after the main page fetch.
+ *
+ * Includes ALL dispositioned statuses (not just the protected set) — the
+ * card UI may want to render an indicator for `skip` too even though skip
+ * doesn't trigger the override.
+ */
+async function fetchDispositionStatusByBusinessId(
+  businessIds: string[],
+): Promise<Map<string, DispositionStatus>> {
+  const out = new Map<string, DispositionStatus>();
+  if (businessIds.length === 0) return out;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("customer_business_disposition")
+    .select("business_id, status")
+    .in("business_id", businessIds);
+
+  if (error) {
+    console.error("[fetchDispositionStatusByBusinessId] query failed:", error);
+    return out;
+  }
+  for (const r of (data ?? []) as Array<{
+    business_id: string;
+    status: DispositionStatus;
+  }>) {
+    out.set(r.business_id, r.status);
+  }
+  return out;
+}
 
 /**
  * Fetch one page of classified_records for the current authenticated
@@ -38,6 +126,14 @@ export async function fetchDashboardPage(args: {
   const supabase = await createClient();
   const cursor = decodeCursor(args.cursor);
   const { filters } = args;
+
+  // Task 4: dispositioned-records-always-visible. Fetch the customer's
+  // protected business_ids first so the customer_status hide predicate can
+  // OR them in. Empty list is fine — the OR-clause builder degrades to the
+  // null-safe Inactive hide from Task 3.
+  const protectedBusinessIds = filters.showInactive
+    ? []
+    : await fetchProtectedDispositionedBusinessIds();
 
   // Build the joined SELECT. PostgREST infers FKs by relationship name —
   // classified_records has exactly one FK to each of these tables, so
@@ -102,14 +198,18 @@ export async function fetchDashboardPage(args: {
     query = query.gte("classified_at", threshold);
   }
 
-  if (!filters.showInactive) {
-    // Hide Inactive rows by default but keep NULL visible. PostgREST .neq
-    // does NOT match NULL (three-valued logic), so the OR with .is.null is
-    // load-bearing — without it most rows disappear during jurisdiction
-    // rollout when customer_status is largely NULL. Each .or() call is its
-    // own AND-joined group, so this composes cleanly with the cursor .or()
-    // below.
-    query = query.or("customer_status.is.null,customer_status.neq.Inactive");
+  const customerStatusOr = buildCustomerStatusOrClause(
+    filters.showInactive,
+    protectedBusinessIds,
+  );
+  if (customerStatusOr) {
+    // Null-safe Inactive hide (Task 3) unioned with the protected-
+    // disposition override (Task 4). PostgREST .neq doesn't match NULL
+    // under three-valued logic, so .is.null is load-bearing; without it
+    // most rows disappear during jurisdiction rollout when customer_status
+    // is largely NULL. Each .or() call is its own AND-joined group, so
+    // this composes cleanly with the cursor .or() below.
+    query = query.or(customerStatusOr);
   }
 
   // -- Sort + cursor --
@@ -166,6 +266,7 @@ export async function fetchDashboardPage(args: {
     signal_strength: r.signal_strength,
     signal_strength_reason: r.signal_strength_reason,
     customer_status: r.customer_status,
+    disposition_status: null,
     notes: r.notes,
     classified_at: r.classified_at,
     state_id: r.state_id,
@@ -175,6 +276,21 @@ export async function fetchDashboardPage(args: {
     business: r.businesses,
     location: r.locations,
   }));
+
+  // Enrich with disposition_status. One extra query keyed by the page's
+  // distinct business_ids; null for any record whose parent business has
+  // no disposition row.
+  const pageBusinessIds = Array.from(
+    new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
+  );
+  const dispositionByBusinessId =
+    await fetchDispositionStatusByBusinessId(pageBusinessIds);
+  for (const record of records) {
+    const bid = record.business?.id;
+    if (bid) {
+      record.disposition_status = dispositionByBusinessId.get(bid) ?? null;
+    }
+  }
 
   const hasMore = rows.length > PAGE_SIZE;
   const last = records[records.length - 1];
@@ -338,6 +454,12 @@ export async function fetchAllRecordsForExport(args: {
   const supabase = await createClient();
   const { filters } = args;
 
+  // Task 4: same protected-dispositions override as the page query — exports
+  // include dispositioned-Inactive records that the rep would see on screen.
+  const protectedBusinessIds = filters.showInactive
+    ? []
+    : await fetchProtectedDispositionedBusinessIds();
+
   let query = supabase
     .from("classified_records")
     .select(
@@ -388,10 +510,12 @@ export async function fetchAllRecordsForExport(args: {
     query = query.gte("classified_at", threshold);
   }
 
-  if (!filters.showInactive) {
-    // Same null-safe Inactive hide as the page query — exports respect
-    // the customer's current visibility toggle.
-    query = query.or("customer_status.is.null,customer_status.neq.Inactive");
+  const customerStatusOr = buildCustomerStatusOrClause(
+    filters.showInactive,
+    protectedBusinessIds,
+  );
+  if (customerStatusOr) {
+    query = query.or(customerStatusOr);
   }
 
   const ascending = filters.sort === "oldest_first";
@@ -413,7 +537,7 @@ export async function fetchAllRecordsForExport(args: {
     }
   >;
 
-  return rows.map((r) => ({
+  const records: DashboardRecord[] = rows.map((r) => ({
     id: r.id,
     classification_version: r.classification_version,
     license_record_type: r.license_record_type,
@@ -425,6 +549,7 @@ export async function fetchAllRecordsForExport(args: {
     signal_strength: r.signal_strength,
     signal_strength_reason: r.signal_strength_reason,
     customer_status: r.customer_status,
+    disposition_status: null,
     notes: r.notes,
     classified_at: r.classified_at,
     state_id: r.state_id,
@@ -433,6 +558,22 @@ export async function fetchAllRecordsForExport(args: {
     business: r.businesses,
     location: r.locations,
   }));
+
+  // Enrich with disposition_status — same pattern as fetchDashboardPage.
+  // Even on a 10K export this is one cheap query against the customer's own
+  // dispositions table (typically small).
+  const exportBusinessIds = Array.from(
+    new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
+  );
+  const dispositionByBusinessId =
+    await fetchDispositionStatusByBusinessId(exportBusinessIds);
+  for (const record of records) {
+    const bid = record.business?.id;
+    if (bid) {
+      record.disposition_status = dispositionByBusinessId.get(bid) ?? null;
+    }
+  }
+  return records;
 }
 
 /**
