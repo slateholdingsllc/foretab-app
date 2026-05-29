@@ -1,4 +1,9 @@
-"use server";
+// NOTE: no "use server" directive. These functions are called from server
+// components (Insights panel) — not as form-action Server Actions from
+// client code — so the directive isn't required. AND under Next 15 a
+// module marked "use server" can only export async functions; this file
+// re-exports HOT_LIKE_SIGNALS / WARM_LIKE_SIGNALS arrays at the bottom,
+// which would block the build.
 
 import { createClient } from "@/lib/supabase/server";
 import type {
