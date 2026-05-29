@@ -3,8 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getRecordSourceLabel } from "@/lib/dashboard/state-display";
 import type { DashboardRecord, StateHealthEntry } from "@/lib/dashboard/types";
 import { PROTECTED_DISPOSITION_STATUSES } from "@/lib/dashboard/types";
-import { DispositionRow } from "./disposition/disposition-row";
 import { FreshnessBadge } from "./freshness-badge";
+import { RecordDispositionStrip } from "./record-disposition-strip";
 import { SignalBadge } from "./signal-badge";
 
 /**
@@ -147,19 +147,10 @@ export function RecordCard({
         </div>
       </CardContent>
 
-      {/* Disposition strip — Design's DispositionRow renders its own
-          surface-2 band with hairline top border. Skipped if the join
-          didn't resolve a business (no parent business_id to write
-          dispositions against). Notes is a single scratchpad string per
-          the contract, so noteCount is 0 or 1. onOpen is intentionally
-          unwired in this pass — DetailPanel wiring is a follow-up. */}
-      {business?.id ? (
-        <DispositionRow
-          businessId={business.id}
-          disposition={record.disposition}
-          noteCount={record.disposition?.notes ? 1 : 0}
-        />
-      ) : null}
+      {/* Disposition strip + slide-over. RecordDispositionStrip owns the
+          panel's open-state and lazy-mounts DetailPanel on first open.
+          Self-skips when there's no parent business. */}
+      <RecordDispositionStrip record={record} />
     </Card>
   );
 }
