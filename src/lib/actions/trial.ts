@@ -30,14 +30,14 @@ const DEFAULT_FILTERS = [
     },
   },
   {
-    name: "Hot signal only",
+    name: "New signal only",
     filter_config: {
       states: [],
       licenseTypes: [],
-      signalStrengths: ["hot"],
+      signalStrengths: ["New"],
       businessArchetypes: [],
       daysWindow: null,
-      sort: "signal_strength_desc",
+      sort: "newest_first",
     },
   },
   {
