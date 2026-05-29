@@ -104,6 +104,7 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
     const archetype = (formData.getAll("archetype") as string[]).filter(Boolean);
     const days = String(formData.get("days") ?? "");
     const sort = String(formData.get("sort") ?? "newest_first");
+    const showInactive = formData.get("inactive") === "1";
 
     const next: FilterState = {
       states,
@@ -112,6 +113,7 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       businessArchetypes: archetype as FilterState["businessArchetypes"],
       daysWindow: days ? Number.parseInt(days, 10) : null,
       sort: (sort as FilterState["sort"]) ?? "newest_first",
+      showInactive,
     };
 
     const params = serializeFiltersToSearchParams(next);
@@ -128,7 +130,11 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
     });
   }
 
-  const active = hasActiveFilters(current);
+  // showInactive is intentionally NOT counted by hasActiveFilters (it
+  // broadens results, doesn't narrow — keeps the no_matches vs no_records
+  // empty state correct). It does count for Clear-button visibility,
+  // since clearing should restore the default sellable-cohort view.
+  const active = hasActiveFilters(current) || current.showInactive;
 
   return (
     <form action={applyFromForm} className="space-y-4">
@@ -242,6 +248,31 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="inactive">Visibility</Label>
+        <label
+          htmlFor="inactive"
+          className="flex cursor-pointer items-start gap-2 text-sm"
+        >
+          <input
+            id="inactive"
+            type="checkbox"
+            name="inactive"
+            value="1"
+            defaultChecked={current.showInactive}
+            disabled={pending}
+            className="mt-0.5 h-4 w-4 rounded border-input"
+          />
+          <span className="leading-snug text-foreground-2">
+            Show inactive licenses
+            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+              Includes revoked, expired, and otherwise inactive records. Hidden
+              by default.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="flex gap-2">

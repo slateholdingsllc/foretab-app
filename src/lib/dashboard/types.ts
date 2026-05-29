@@ -52,6 +52,17 @@ export type BeverageScope =
   | "unknown";
 
 /**
+ * Per-record current-state bucket set by Agent A's classifier on
+ * classified_records.customer_status. Distinct from license_record_type
+ * (the event) — this is the license's CURRENT state.
+ *
+ * Default view (showInactive=false) hides "Inactive" rows but keeps NULL
+ * visible — most rows will be NULL during jurisdiction rollout and
+ * dropping them would empty the dashboard.
+ */
+export type CustomerStatus = "Active" | "Pending" | "Suspended" | "Inactive";
+
+/**
  * Shape returned by the dashboard query (joined view across
  * classified_records + businesses + locations + states). All joins are
  * LEFT JOINs because dedup may not have populated business_id /
@@ -68,6 +79,7 @@ export type DashboardRecord = {
   beverage_scope: BeverageScope | null;
   signal_strength: SignalStrength | null;
   signal_strength_reason: string | null;
+  customer_status: CustomerStatus | null;
   notes: string | null;
   classified_at: string; // ISO timestamp
   state_id: string;
@@ -99,6 +111,12 @@ export type FilterState = {
   businessArchetypes: BusinessArchetype[];
   daysWindow: number | null; // null = all time; e.g., 7, 30, 90
   sort: SortOrder;
+  /**
+   * When false (default), the query hides records with customer_status =
+   * 'Inactive'. NULL rows remain visible regardless. When true, no
+   * customer_status predicate is applied.
+   */
+  showInactive: boolean;
 };
 
 export const DEFAULT_FILTER_STATE: FilterState = {
@@ -108,6 +126,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   businessArchetypes: [],
   daysWindow: null,
   sort: "newest_first",
+  showInactive: false,
 };
 
 export const PAGE_SIZE = 50;
