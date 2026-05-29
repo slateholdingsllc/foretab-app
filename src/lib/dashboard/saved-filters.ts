@@ -53,11 +53,7 @@ const VALID_BUSINESS_ARCHETYPES = new Set<BusinessArchetype>([
   "special_event",
   "other",
 ]);
-const VALID_SORTS = new Set<SortOrder>([
-  "newest_first",
-  "oldest_first",
-  "signal_strength_desc",
-]);
+const VALID_SORTS = new Set<SortOrder>(["newest_first", "oldest_first"]);
 const VALID_DAYS_WINDOWS = new Set([7, 30, 90, 180, 365]);
 
 function pickArray<T>(

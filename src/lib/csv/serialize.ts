@@ -27,6 +27,8 @@ const COLUMNS = [
   "icp_relevance",
   "source",
   "notes",
+  "customer_status",
+  "disposition_status",
 ] as const;
 
 /**
@@ -91,6 +93,8 @@ function recordRow(r: DashboardRecord): string[] {
     r.icp_relevance.join("; "),
     source,
     r.notes ?? "",
+    r.customer_status ?? "",
+    r.disposition_status ?? "",
   ];
 }
 
