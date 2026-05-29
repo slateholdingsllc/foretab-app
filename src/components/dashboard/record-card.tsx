@@ -72,6 +72,13 @@ export function RecordCard({
           <SignalBadge signal={record.signal_strength} />
         </div>
 
+        {record.signal_strength_reason ? (
+          <p className="text-sm italic leading-relaxed text-muted-foreground">
+            <span aria-hidden="true">↳ </span>
+            {record.signal_strength_reason}
+          </p>
+        ) : null}
+
         {address ? (
           <p className="text-sm leading-relaxed text-foreground-2">{address}</p>
         ) : null}

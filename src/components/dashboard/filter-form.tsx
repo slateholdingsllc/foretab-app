@@ -37,10 +37,12 @@ const LICENSE_TYPE_OPTIONS: Array<{ value: LicenseRecordType; label: string }> =
   { value: "application", label: "Application" },
 ];
 
+// Display labels relabeled to New/Established/Dormant. Values stay
+// hot|warm|cold so existing URLs and saved filters keep resolving.
 const SIGNAL_OPTIONS: Array<{ value: SignalStrength; label: string }> = [
-  { value: "hot", label: "Hot" },
-  { value: "warm", label: "Warm" },
-  { value: "cold", label: "Cold" },
+  { value: "hot", label: "New" },
+  { value: "warm", label: "Established" },
+  { value: "cold", label: "Dormant" },
 ];
 
 const ARCHETYPE_OPTIONS: Array<{ value: BusinessArchetype; label: string }> = [
