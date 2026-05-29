@@ -17,7 +17,22 @@ export type DataSourceChannel =
   | "prr_request"
   | "foia_request";
 
-export type SignalStrength = "hot" | "warm" | "cold";
+/**
+ * Pinned to Agent A's v2 classification vocabulary per
+ * 20260528000001_signal_strength_rename.sql. Verified 2026-05-29: zero v1
+ * (hot/warm/cold) rows remain in classified_records. Mirrors
+ * `disposition/types.ts` SignalStrength — single source of truth across
+ * the dashboard read path and the disposition data layer.
+ *
+ * Semantic mapping vs the v1 pack (for archaeology):
+ *   New          high-intent freshly-classified signal (was: hot)
+ *   Established  proven-pattern signal              (was: warm)
+ *   Dormant      inactive / cold                    (was: cold)
+ *
+ * Display label = the value itself (already display-grade), so SignalBadge
+ * renders the value directly and maps to a Badge variant separately.
+ */
+export type SignalStrength = "New" | "Established" | "Dormant";
 
 export type LicenseRecordType =
   | "new_issuance"
