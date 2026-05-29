@@ -102,7 +102,7 @@ export default async function TrialExpiredPage() {
                   <div>
                     <div className="text-2xl font-bold">{formatCurrency(monthly)}/mo</div>
                     <div className="text-sm text-muted-foreground">
-                      or {formatCurrency(annual)}/yr (10% off)
+                      or {formatCurrency(annual)}/yr (2 months free)
                     </div>
                   </div>
                   <div className="space-y-2">
