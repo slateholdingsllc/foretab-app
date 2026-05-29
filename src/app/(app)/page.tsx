@@ -3,19 +3,24 @@ import { AppShell } from "@/components/dashboard/app-shell";
 import { DegradedStateBanner } from "@/components/dashboard/degraded-state-banner";
 import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
 import { DensityProvider } from "@/components/dashboard/disposition/density-provider";
+import { Insights } from "@/components/dashboard/disposition/insights";
 import { RecentlyViewed } from "@/components/dashboard/disposition/recently-viewed";
 import type { StatusTabValue } from "@/components/dashboard/disposition/status-tabs";
+import { TodayPanel } from "@/components/dashboard/disposition/today-panel";
 import { Feed } from "@/components/dashboard/feed";
 import {
   getRecentlyViewed,
   getStatusCounts,
 } from "@/lib/disposition/actions";
-// TodayPanel + Insights mounts are deferred: they require pulling from
-// today.queries.ts / insights.queries.ts which currently combine
-// "use server" with non-function const exports (HOT_LIKE_SIGNALS,
-// WARM_LIKE_SIGNALS). Next 15 rejects that at build. Tracked in the PR
-// description — flagged for Agent B to fix his file, then those two
-// panels get mounted in a follow-up PR.
+import {
+  getActivityLast30Days,
+  getDispositionFunnel,
+  getWinRateBySignal,
+} from "@/lib/disposition/insights.queries";
+import {
+  getDueFollowUpsForToday,
+  getNewHighPriority,
+} from "@/lib/disposition/today.queries";
 import { parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
 import {
   fetchAccessibleStateCodes,
@@ -111,8 +116,13 @@ export default async function DashboardPage({
     healthMap,
     exportStatus,
     savedFilters,
+    dueFollowUps,
+    newHighPriority,
     recentlyViewed,
     statusCounts,
+    funnel,
+    winRate,
+    activity,
   ] = await Promise.all([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
@@ -120,19 +130,31 @@ export default async function DashboardPage({
     fetchDataSourceHealthMap(),
     fetchExportStatus(),
     fetchSavedFilters(),
+    getDueFollowUpsForToday(),
+    getNewHighPriority(),
     getRecentlyViewed(),
     getStatusCounts(),
+    getDispositionFunnel(),
+    getWinRateBySignal(),
+    getActivityLast30Days(),
   ]);
 
   // StatusTabs counts. `all` mirrors what the worklist currently shows
   // (totalCount under the active filter set). Specific statuses come
-  // straight from getStatusCounts. `uncontacted` is left undefined for
-  // now — the canonical formula (funnel.surfaced − sum of explicits)
-  // depends on getDispositionFunnel from insights.queries.ts, which is
-  // currently un-importable (see flag at top of file). StatusTabs hides
-  // missing counts gracefully.
+  // straight from getStatusCounts. `uncontacted` is the implicit no-row
+  // bucket: funnel.surfaced (distinct businesses in scope) minus the
+  // sum of explicit-status disposition rows. Per the contract's
+  // distinct-business convention, this matches what the rep expects to
+  // see when they click the Uncontacted tab.
+  const explicitDispositionedSum =
+    statusCounts.saved +
+    statusCounts.working +
+    statusCounts.won +
+    statusCounts.lost +
+    statusCounts.skip;
   const tabCounts: Partial<Record<StatusTabValue, number>> = {
     all: page.totalCount ?? undefined,
+    uncontacted: Math.max(0, funnel.surfaced - explicitDispositionedSum),
     saved: statusCounts.saved,
     working: statusCounts.working,
     won: statusCounts.won,
@@ -157,6 +179,7 @@ export default async function DashboardPage({
           pack expects. */}
       <DensityProvider>
         <div className="flex flex-col gap-4">
+          <TodayPanel due={dueFollowUps} newLeads={newHighPriority} />
           <RecentlyViewed items={recentlyViewed} />
           <DispositionTabsBar
             active={filters.dispositionTab}
@@ -168,6 +191,7 @@ export default async function DashboardPage({
             healthMap={healthMap}
             exportStatus={exportStatus}
           />
+          <Insights funnel={funnel} winRate={winRate} activity={activity} />
         </div>
       </DensityProvider>
     </AppShell>
