@@ -104,6 +104,7 @@ export function parseFiltersFromSearchParams(
     businessArchetypes: parseList(get("archetype"), VALID_BUSINESS_ARCHETYPES),
     daysWindow: parseDaysWindow(get("days")),
     sort: parseSort(get("sort")),
+    showInactive: get("inactive") === "1",
   };
 }
 
@@ -121,6 +122,7 @@ export function serializeFiltersToSearchParams(filters: FilterState): URLSearchP
     params.set("archetype", filters.businessArchetypes.join(","));
   if (filters.daysWindow !== null) params.set("days", String(filters.daysWindow));
   if (filters.sort !== DEFAULT_FILTER_STATE.sort) params.set("sort", filters.sort);
+  if (filters.showInactive) params.set("inactive", "1");
   return params;
 }
 

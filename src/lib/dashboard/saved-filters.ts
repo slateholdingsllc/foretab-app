@@ -125,6 +125,10 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
       : DEFAULT_FILTER_STATE.sort
   );
 
+  // Legacy rows (seeded before Task 3) don't have showInactive — default
+  // to false so they keep the sellable-cohort view they were saved against.
+  const showInactive = r.showInactive === true || r.show_inactive === true;
+
   return {
     states: cleanStates,
     licenseTypes,
@@ -132,6 +136,7 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
     businessArchetypes,
     daysWindow,
     sort,
+    showInactive,
   };
 }
 

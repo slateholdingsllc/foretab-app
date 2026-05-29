@@ -57,6 +57,7 @@ export async function fetchDashboardPage(args: {
       beverage_scope,
       signal_strength,
       signal_strength_reason,
+      customer_status,
       notes,
       classified_at,
       state_id,
@@ -99,6 +100,16 @@ export async function fetchDashboardPage(args: {
       Date.now() - filters.daysWindow * 24 * 60 * 60 * 1000,
     ).toISOString();
     query = query.gte("classified_at", threshold);
+  }
+
+  if (!filters.showInactive) {
+    // Hide Inactive rows by default but keep NULL visible. PostgREST .neq
+    // does NOT match NULL (three-valued logic), so the OR with .is.null is
+    // load-bearing — without it most rows disappear during jurisdiction
+    // rollout when customer_status is largely NULL. Each .or() call is its
+    // own AND-joined group, so this composes cleanly with the cursor .or()
+    // below.
+    query = query.or("customer_status.is.null,customer_status.neq.Inactive");
   }
 
   // -- Sort + cursor --
@@ -154,6 +165,7 @@ export async function fetchDashboardPage(args: {
     beverage_scope: r.beverage_scope,
     signal_strength: r.signal_strength,
     signal_strength_reason: r.signal_strength_reason,
+    customer_status: r.customer_status,
     notes: r.notes,
     classified_at: r.classified_at,
     state_id: r.state_id,
@@ -340,6 +352,7 @@ export async function fetchAllRecordsForExport(args: {
       beverage_scope,
       signal_strength,
       signal_strength_reason,
+      customer_status,
       notes,
       classified_at,
       state_id,
@@ -375,6 +388,12 @@ export async function fetchAllRecordsForExport(args: {
     query = query.gte("classified_at", threshold);
   }
 
+  if (!filters.showInactive) {
+    // Same null-safe Inactive hide as the page query — exports respect
+    // the customer's current visibility toggle.
+    query = query.or("customer_status.is.null,customer_status.neq.Inactive");
+  }
+
   const ascending = filters.sort === "oldest_first";
   query = query
     .order("classified_at", { ascending })
@@ -405,6 +424,7 @@ export async function fetchAllRecordsForExport(args: {
     beverage_scope: r.beverage_scope,
     signal_strength: r.signal_strength,
     signal_strength_reason: r.signal_strength_reason,
+    customer_status: r.customer_status,
     notes: r.notes,
     classified_at: r.classified_at,
     state_id: r.state_id,
