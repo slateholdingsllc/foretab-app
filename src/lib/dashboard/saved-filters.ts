@@ -31,7 +31,11 @@ const VALID_LICENSE_TYPES = new Set<LicenseRecordType>([
   "revocation",
   "application",
 ]);
-const VALID_SIGNAL_STRENGTHS = new Set<SignalStrength>(["hot", "warm", "cold"]);
+const VALID_SIGNAL_STRENGTHS = new Set<SignalStrength>([
+  "New",
+  "Established",
+  "Dormant",
+]);
 const VALID_BUSINESS_ARCHETYPES = new Set<BusinessArchetype>([
   "bar_tavern",
   "restaurant_full_service",

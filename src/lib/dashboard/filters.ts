@@ -33,7 +33,7 @@ const VALID_LICENSE_TYPES: LicenseRecordType[] = [
   "application",
 ];
 
-const VALID_SIGNAL_STRENGTHS: SignalStrength[] = ["hot", "warm", "cold"];
+const VALID_SIGNAL_STRENGTHS: SignalStrength[] = ["New", "Established", "Dormant"];
 
 const VALID_BUSINESS_ARCHETYPES: BusinessArchetype[] = [
   "bar_tavern",

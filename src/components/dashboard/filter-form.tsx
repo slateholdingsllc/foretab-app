@@ -37,12 +37,12 @@ const LICENSE_TYPE_OPTIONS: Array<{ value: LicenseRecordType; label: string }> =
   { value: "application", label: "Application" },
 ];
 
-// Display labels relabeled to New/Established/Dormant. Values stay
-// hot|warm|cold so existing URLs and saved filters keep resolving.
+// v2 vocab — values match what classified_records.signal_strength stores
+// (Agent A's 20260528000001 migration). Display label = value.
 const SIGNAL_OPTIONS: Array<{ value: SignalStrength; label: string }> = [
-  { value: "hot", label: "New" },
-  { value: "warm", label: "Established" },
-  { value: "cold", label: "Dormant" },
+  { value: "New", label: "New" },
+  { value: "Established", label: "Established" },
+  { value: "Dormant", label: "Dormant" },
 ];
 
 const ARCHETYPE_OPTIONS: Array<{ value: BusinessArchetype; label: string }> = [
