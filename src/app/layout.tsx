@@ -41,14 +41,18 @@ export const metadata: Metadata = {
  *
  * Resolution order:
  *   1. localStorage["foretab-theme"] = "light" | "dark"  → explicit choice
- *   2. window.matchMedia("prefers-color-scheme: light")   → system pref
- *   3. fall back to "dark"                                → brand default
+ *   2. fall back to "light"                              → Spotlight default
+ *
+ * No prefers-color-scheme branch on purpose: a fresh visitor's first
+ * impression is the warm Spotlight palette regardless of OS pref, so
+ * the rebrand actually reads. Returning users who've used ThemeToggle
+ * keep their explicit choice — only the no-preference default flips.
  *
  * Wrapped in try/catch so a localStorage failure (private mode, etc.)
- * never blocks rendering. Errors swallowed — the dark fallback covers
- * the worst case.
+ * never blocks rendering. Errors swallowed — light also covers the
+ * worst case.
  */
-const themeInitScript = `(function(){try{var s=localStorage.getItem('foretab-theme');if(s==='light'||s==='dark'){document.documentElement.dataset.theme=s;return;}document.documentElement.dataset.theme=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}catch(e){document.documentElement.dataset.theme='dark';}})();`;
+const themeInitScript = `(function(){try{var s=localStorage.getItem('foretab-theme');document.documentElement.dataset.theme=(s==='light'||s==='dark')?s:'light';}catch(e){document.documentElement.dataset.theme='light';}})();`;
 
 export default function RootLayout({
   children,
