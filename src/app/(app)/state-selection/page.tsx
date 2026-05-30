@@ -40,6 +40,20 @@ export default async function StateSelectionPage() {
     if (existingTrial) redirect("/");
   }
 
+  // Resolve business_state from either the customer row (set by prior visit
+  // or future trigger update) OR the signup form's user_metadata (source of
+  // truth for new signups — /signup writes it; the email-confirm trigger
+  // doesn't currently propagate it). When both are absent we fall through
+  // to the "Where is your business?" collector in the form. New signups
+  // post-2026-05-29 always have it in metadata.
+  const metadataBusinessState = (
+    (user.user_metadata?.business_state as string | undefined) ?? ""
+  )
+    .trim()
+    .toUpperCase();
+  const resolvedBusinessState =
+    customer?.business_state ?? (metadataBusinessState || null);
+
   // Load the excluded list AND re-check any stored business_state against
   // it. This catches the "excluded list expanded since this customer
   // signed up" case — they passed the signup gate at the time but no
@@ -73,13 +87,13 @@ export default async function StateSelectionPage() {
     );
   }
 
-  // Block existing customer whose stored business_state is now excluded.
-  // The actual wind-down (revoke session, churn the account) is an
-  // operational follow-up; here we just refuse to proceed and surface a
-  // clear message.
+  // Block existing customer whose stored OR metadata-supplied business_state
+  // is now excluded. Same belt-and-suspenders check as before — but now
+  // also catches metadata-supplied states that became excluded between
+  // signup and email verification. The action layer also re-validates.
   if (
-    customer?.business_state &&
-    excludedStates.includes(customer.business_state)
+    resolvedBusinessState &&
+    excludedStates.includes(resolvedBusinessState)
   ) {
     return (
       <div className="max-w-md mx-auto pt-12">
@@ -88,7 +102,7 @@ export default async function StateSelectionPage() {
             <CardTitle>We can't start your trial</CardTitle>
             <CardDescription>
               Foretab doesn't currently operate in{" "}
-              {getStateName(customer.business_state) ?? customer.business_state}.
+              {getStateName(resolvedBusinessState) ?? resolvedBusinessState}.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -119,7 +133,10 @@ export default async function StateSelectionPage() {
     .select("id, state_code, authority_name, refresh_frequency")
     .order("state_code");
 
-  const needsBusinessState = !customer?.business_state;
+  // Only collect business_state on-screen when we have no source for it
+  // at all (legacy customer with no /signup-form value AND no trigger
+  // backfill). New post-2026-05-29 signups always have it in metadata.
+  const needsBusinessState = !resolvedBusinessState;
 
   return (
     <div className="max-w-md mx-auto pt-12">
@@ -136,6 +153,7 @@ export default async function StateSelectionPage() {
             states={states ?? []}
             excludedStates={excludedStates}
             needsBusinessState={needsBusinessState}
+            initialBusinessState={resolvedBusinessState}
           />
         </CardContent>
       </Card>
