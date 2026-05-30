@@ -31,6 +31,13 @@ import { SignalBadge } from "./signal-badge";
  * for cadence-aware thresholds). When health is unavailable (missing
  * entry), the badge degrades to "Last refresh unknown" — never silently
  * hides the freshness signal.
+ *
+ * SPOTLIGHT overlay (visual only): the card now rides the warm-paper
+ * surface + rounded-xl Card + pill Badges from the primitive re-skin.
+ * The one card-local change is the business name — stepped up to
+ * text-[17px] semibold to carry the marketing site's bolder, larger
+ * heading voice (the §2 "not semibold" rule is intentionally superseded
+ * by the Spotlight direction). Content, data, and logic are untouched.
  */
 export function RecordCard({
   record,
@@ -84,7 +91,7 @@ export function RecordCard({
 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-0.5">
-            <h3 className="truncate text-base font-medium leading-tight tracking-[-0.015em] text-foreground">
+            <h3 className="truncate text-[17px] font-semibold leading-tight tracking-[-0.02em] text-foreground">
               {primaryName}
             </h3>
             {dba && dba !== primaryName ? (
