@@ -18,34 +18,54 @@ type Props = {
   states: TrialStateOption[];
   excludedStates: string[];
   /**
-   * true when the customer's customers.business_state is NULL — we need
-   * to collect it as part of this submission. false when business_state
-   * is already set (re-visit before trial) — skip the collector, only
-   * show the trial picker.
+   * true when neither the customer row nor user_metadata had a
+   * business_state — render the "Where is your business?" collector.
+   * Post-2026-05-29 signups always have it in metadata, so this is
+   * the legacy / edge-case path.
    */
   needsBusinessState: boolean;
+  /**
+   * Pre-resolved business_state (from customers.business_state OR
+   * raw_user_meta_data.business_state). Used to (a) pre-populate the
+   * hidden business_state value sent to the action and (b) pre-select
+   * the trial radio matching this state if it's in the sellable list.
+   */
+  initialBusinessState: string | null;
 };
 
 export function StateSelectionForm({
   states,
   excludedStates,
   needsBusinessState,
+  initialBusinessState,
 }: Props) {
+  // Pre-select the trial state matching the customer's business state,
+  // if it's in the sellable list. Collapses the
+  // signup→verify→repick→pick-trial flow into a one-touch confirm.
+  // User can still change the radio if they want to evaluate a
+  // different state during trial.
+  const defaultTrialStateId = initialBusinessState
+    ? states.find((s) => s.state_code === initialBusinessState)?.id ?? null
+    : null;
+
   const [error, setError] = useState<string | null>(null);
-  const [businessState, setBusinessState] = useState<string>("");
-  const [selectedTrialState, setSelectedTrialState] = useState<string | null>(null);
+  const [businessState, setBusinessState] = useState<string>(
+    initialBusinessState ?? "",
+  );
+  const [selectedTrialState, setSelectedTrialState] = useState<string | null>(
+    defaultTrialStateId,
+  );
   const [pending, startTransition] = useTransition();
 
   const businessStateExcluded =
-    needsBusinessState && businessState && excludedStates.includes(businessState);
-  const businessStateValid =
-    !needsBusinessState || (businessState && !businessStateExcluded);
+    businessState && excludedStates.includes(businessState);
+  const businessStateValid = !!businessState && !businessStateExcluded;
 
   return (
     <form
       action={(formData) => {
         setError(null);
-        if (needsBusinessState && !businessState) {
+        if (!businessState) {
           setError("Pick your business state to continue.");
           return;
         }
@@ -60,7 +80,10 @@ export function StateSelectionForm({
           setError("Pick a state for your trial.");
           return;
         }
-        if (needsBusinessState) formData.set("business_state", businessState);
+        // Always include business_state — the action persists it to
+        // customers.business_state when it differs from the stored value
+        // (handles new signups where the trigger-created row has NULL).
+        formData.set("business_state", businessState);
         formData.set("state_id", selectedTrialState);
         startTransition(async () => {
           const result = await selectTrialState(formData);
@@ -107,6 +130,12 @@ export function StateSelectionForm({
       {businessStateValid && (
         <div className="space-y-2">
           <Label>Choose your trial state</Label>
+          {defaultTrialStateId && (
+            <p className="text-xs text-muted-foreground">
+              We've defaulted to your business state — change if you want
+              to evaluate a different state during trial.
+            </p>
+          )}
           <div className="max-h-80 overflow-y-auto rounded-md border border-input divide-y">
             {states.map((s) => (
               <label
