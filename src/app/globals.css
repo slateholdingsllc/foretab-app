@@ -15,6 +15,15 @@
    The FOUC-safe init script in src/app/layout.tsx sets [data-theme]
    on <html> before React hydrates, so cold loads land on the right
    surface without a flash.
+
+   ─── SPOTLIGHT VISUAL OVERLAY (Claude Design) ───
+   Carries the warm-light Spotlight marketing language into the app:
+   light theme becomes warm paper (was cool white); the light accent
+   matches the marketing brand blue (#1C61E8); a sparing --color-amber
+   secondary accent is added; --radius-pill supports the pill CTAs; and
+   the dark --color-foreground-muted is lifted to #8B93A6 for WCAG-AA
+   contrast on elevated surfaces. Visual layer only — no component,
+   copy, or logic changes here.
    ═══════════════════════════════════════════════════════════════════════ */
 
 @theme {
@@ -48,10 +57,15 @@
      Card titles + body use --color-foreground.
      Section subheads use --color-foreground-2.
      Eyebrow / meta / labels use --color-foreground-muted.
-     Placeholders / disabled use --color-foreground-subtle. */
+     Placeholders / disabled use --color-foreground-subtle.
+
+     foreground-muted lifted #767E91 → #8B93A6 (Spotlight overlay):
+     the old value fell to 4.14:1 on surface-2 and 3.58:1 on
+     surface-3 — below WCAG-AA for text. #8B93A6 clears 4.5:1 on
+     every dark surface. */
   --color-foreground: #F2F4F7;
   --color-foreground-2: #C9CED8;
-  --color-foreground-muted: #767E91;
+  --color-foreground-muted: #8B93A6;
   --color-foreground-subtle: #525B6E;
 
   /* ─── Accent (electric blue, brand) ─────────────────────────
@@ -76,6 +90,14 @@
   --color-destructive-foreground: #FFFFFF;
   --color-destructive-tint: rgba(224, 89, 74, 0.12);
 
+  /* ─── Amber (Spotlight secondary accent) ────────────────────
+     A sparing warm accent carried from the marketing site — for
+     highlight markers and "due" cues only, never on data values.
+     Distinct token from --color-warning so semantic warning use
+     (TrialBadge) is unaffected. */
+  --color-amber: #E0A341;
+  --color-amber-tint: rgba(224, 163, 65, 0.16);
+
   /* ─── shadcn semantic aliases ───────────────────────────────
      Existing components (Card, Button, Badge, Alert, Input, etc.)
      reference these names. Aliasing them to the new tokens means
@@ -98,43 +120,50 @@
   /* ─── Radii ─────────────────────────────────────────────────
      Existing components use rounded-md (= 6px). We keep --radius
      at 6px for backward compatibility; the sm/lg keys give us
-     pinned-3px badges and pinned-8px elevated cards in PR 2/3. */
+     pinned-3px badges and pinned-8px elevated cards in PR 2/3.
+     --radius-pill (Spotlight overlay) is for pill-shaped primary
+     and entry CTAs; dense data controls keep the smaller radii. */
   --radius-sm: 3px;
   --radius: 6px;
   --radius-md: 6px;
   --radius-lg: 8px;
+  --radius-pill: 9999px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   LIGHT THEME — opt-in
+   LIGHT THEME — opt-in · SPOTLIGHT WARM PAPER
    Applied by setting <html data-theme="light"> (handled by ThemeToggle
    + the FOUC-safe init script in layout.tsx).
+
+   Re-skinned to the marketing site's warm paper: the cool-white ramp
+   (#F6F7F9 / #FFFFFF / #F2F4F7) becomes warm cream, foregrounds warm
+   ink, and the accent matches the Spotlight brand blue (#1C61E8 — AA
+   on white). Semantics keep their AA-compliant light values.
    ═══════════════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-  --color-background: #F6F7F9;
+  --color-background: #FCFBF8;
   --color-surface: #FFFFFF;
-  --color-surface-2: #F2F4F7;
-  --color-surface-3: #E4E7EC;
+  --color-surface-2: #F4F2EC;
+  --color-surface-3: #EAE5D8;
 
-  --color-border: #E4E7EC;
-  --color-border-soft: #F2F4F7;
-  --color-input: #E4E7EC;
+  --color-border: #ECE9E1;
+  --color-border-soft: #F4F2EC;
+  --color-input: #ECE9E1;
 
-  --color-foreground: #0A0E1A;
-  --color-foreground-2: #232936;
-  --color-foreground-muted: #525B6E;
-  --color-foreground-subtle: #767E91;
+  --color-foreground: #14171C;
+  --color-foreground-2: #43474F;
+  --color-foreground-muted: #6E6A5F;
+  --color-foreground-subtle: #9A968B;
 
-  /* Light-mode accent deliberately deeper (#0B5BD9 vs the #2A7BFF used
-     on dark). On light surfaces, brand-electric at full saturation
-     drops to ~3.2:1 contrast against white text — below WCAG AA. The
-     deeper hue reads as the same brand identity at AA-compliant 7:1. */
-  --color-accent: #0B5BD9;
-  --color-accent-hover: #094BB8;
-  --color-accent-soft: #2A7BFF;
+  /* Light-mode accent matches the Spotlight marketing blue (#1C61E8).
+     On warm paper this reads as the brand identity at AA-compliant
+     contrast against white button text. */
+  --color-accent: #1C61E8;
+  --color-accent-hover: #1450C4;
+  --color-accent-soft: #5B92FF;
   --color-accent-foreground: #FFFFFF;
-  --color-accent-tint: rgba(11, 91, 217, 0.08);
-  --color-accent-ring: rgba(11, 91, 217, 0.25);
+  --color-accent-tint: rgba(28, 97, 232, 0.08);
+  --color-accent-ring: rgba(28, 97, 232, 0.22);
 
   --color-success: #197D52;
   --color-success-tint: rgba(25, 125, 82, 0.08);
@@ -142,6 +171,10 @@
   --color-warning-tint: rgba(166, 112, 31, 0.08);
   --color-destructive: #B23A28;
   --color-destructive-tint: rgba(178, 58, 40, 0.08);
+
+  /* Spotlight amber reads brighter on warm paper. */
+  --color-amber: #F4B53C;
+  --color-amber-tint: rgba(244, 181, 60, 0.22);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -168,4 +201,3 @@ body {
     background-color 0.15s ease,
     color 0.15s ease;
 }
-
