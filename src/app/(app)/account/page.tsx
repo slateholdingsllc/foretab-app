@@ -143,7 +143,6 @@ export default async function AccountPage({
 
         <ProfileSection
           email={customer.email ?? user.email ?? null}
-          businessState={customer.business_state ?? null}
           status={customer.status ?? null}
         />
 
@@ -154,6 +153,7 @@ export default async function AccountPage({
 
         <StateManagementSection
           tier={(customer.current_tier as "single_state" | "multi_state" | "all_access" | null) ?? null}
+          businessState={customer.business_state ?? null}
           grantedStates={grantedStates}
           sellableStates={sellableStates}
         />

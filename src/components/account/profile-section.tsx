@@ -1,19 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getStateName } from "@/lib/constants";
 
 /**
- * Read-only profile summary. Email + business state come from the
- * customers row. No edit form yet — email changes route through Supabase
- * Auth (separate flow), business_state is collected at /state-selection
- * and shouldn't change post-onboarding (it's a legal-floor input).
+ * Read-only profile summary. Email + account status only. Business
+ * Location (legal-floor input) now lives in StateManagementSection
+ * alongside Trial State, so the page surfaces two clearly distinct
+ * location-related fields in one section rather than splitting them
+ * across Profile + States and reading as a duplicate.
  */
 export function ProfileSection({
   email,
-  businessState,
   status,
 }: {
   email: string | null;
-  businessState: string | null;
   status: string | null;
 }) {
   return (
@@ -23,14 +21,6 @@ export function ProfileSection({
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <Row label="Email" value={email ?? "—"} />
-        <Row
-          label="Business state"
-          value={
-            businessState
-              ? `${getStateName(businessState) ?? businessState} (${businessState})`
-              : "—"
-          }
-        />
         <Row label="Status" value={status ? status.replace(/_/g, " ") : "—"} />
       </CardContent>
     </Card>
