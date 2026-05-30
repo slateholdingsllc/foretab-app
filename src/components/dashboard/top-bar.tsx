@@ -48,8 +48,8 @@ export function TopBar({
           className="flex items-center gap-2 text-foreground transition-opacity hover:opacity-85"
           aria-label="Foretab home"
         >
-          <BrandMark className="size-5" />
-          <span className="text-[15px] font-medium tracking-[-0.02em]">
+          <BrandMark className="size-7" />
+          <span className="text-[19px] font-semibold tracking-[-0.03em]">
             foretab
           </span>
         </Link>

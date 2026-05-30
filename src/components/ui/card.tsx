@@ -19,6 +19,10 @@ import { cn } from "@/lib/utils";
  *     explicit class makes the rule visible in the source.)
  *   - CardDescription is the muted meta slot — `text-muted-foreground`
  *     is the right token for this.
+ *
+ * SPOTLIGHT overlay (visual only): card radius softened to rounded-xl
+ * and CardTitle stepped up to text-xl to match the marketing site's
+ * warmer, larger-type feel. Slot API and callers unchanged.
  */
 const Card = React.forwardRef<
   HTMLDivElement,
@@ -27,7 +31,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-md border border-border bg-card text-card-foreground transition-colors",
+      "rounded-xl border border-border bg-card text-card-foreground transition-colors",
       className,
     )}
     {...props}
@@ -60,7 +64,7 @@ const CardTitle = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "text-lg font-medium leading-tight tracking-[-0.02em] text-foreground",
+      "text-xl font-medium leading-tight tracking-[-0.02em] text-foreground",
       className,
     )}
     {...props}
