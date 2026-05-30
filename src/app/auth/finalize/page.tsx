@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,7 +16,16 @@ import { createClient } from "@/lib/supabase/client";
  * PKCE flows never reach this page — they short-circuit in /auth/callback
  * with exchangeCodeForSession and redirect directly to `next`.
  */
-export default function AuthFinalizePage() {
+
+function Pending() {
+  return (
+    <main className="mx-auto max-w-md p-6">
+      <p className="text-sm text-gray-700">Finishing sign-in…</p>
+    </main>
+  );
+}
+
+function FinalizeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
@@ -87,9 +96,16 @@ export default function AuthFinalizePage() {
     );
   }
 
+  return <Pending />;
+}
+
+export default function AuthFinalizePage() {
+  // useSearchParams() requires a Suspense boundary at the page level under
+  // Next 15's prerender model — without it, `next build` fails with a
+  // "should be wrapped in a suspense boundary" error during SSG.
   return (
-    <main className="mx-auto max-w-md p-6">
-      <p className="text-sm text-gray-700">Finishing sign-in…</p>
-    </main>
+    <Suspense fallback={<Pending />}>
+      <FinalizeInner />
+    </Suspense>
   );
 }
