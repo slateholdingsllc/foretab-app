@@ -22,6 +22,9 @@ import { cn } from "@/lib/utils";
  *
  * `soft` is new — useful for inline accent mentions that don't warrant
  * the full filled `brand` treatment.
+ *
+ * SPOTLIGHT overlay (visual only): pill radius (rounded-full) to match
+ * the marketing chip style. Variant API and callers unchanged.
  */
 type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
   variant?:
@@ -55,7 +58,7 @@ export function Badge({
     <span
       className={cn(
         // Geist Mono · uppercase · tracked — reads as machine output.
-        "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase leading-snug tracking-[0.06em]",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium uppercase leading-snug tracking-[0.06em]",
         VARIANT_CLASSES[variant],
         className,
       )}
