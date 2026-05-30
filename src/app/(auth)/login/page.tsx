@@ -13,6 +13,13 @@ export const metadata = {
   title: "Sign in",
 };
 
+/**
+ * SPOTLIGHT overlay (visual only): the auth card is enlarged to match the
+ * marketing-grade sign-in — centered header, larger title, and generous
+ * fluid padding (p-8 → sm:p-10) so the box fills its space confidently
+ * instead of reading as a small cramped card. Copy, routes, and form
+ * logic are unchanged; only layout/spacing classes were added.
+ */
 export default async function LoginPage({
   searchParams,
 }: {
@@ -22,12 +29,12 @@ export default async function LoginPage({
   const next = params.next || "/";
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Sign in to Foretab</CardTitle>
-        <CardDescription>Welcome back.</CardDescription>
+    <Card className="shadow-[var(--shadow-lg,0_18px_44px_rgba(0,0,0,0.4))]">
+      <CardHeader className="items-center p-8 pb-3 text-center sm:p-10 sm:pb-3">
+        <CardTitle className="text-3xl">Sign in to Foretab</CardTitle>
+        <CardDescription className="text-[15px]">Welcome back.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-8 pt-2 sm:p-10 sm:pt-2">
         <GoogleButton next={next} />
         <div className="relative my-2">
           <div className="absolute inset-0 flex items-center">
