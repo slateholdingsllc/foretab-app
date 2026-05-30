@@ -17,7 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
-  title: "Your trial has ended",
+  title: "Choose a plan",
 };
 
 const TIER_ORDER: Array<{ key: Tier; description: (stateCount: number) => string }> = [
@@ -62,11 +62,12 @@ export default async function TrialExpiredPage() {
     .maybeSingle();
   if (!trial) redirect("/state-selection");
 
-  const expiredAt = new Date(trial.expires_at);
-  if (expiredAt > new Date()) {
-    // Trial not yet expired — back to dashboard
-    redirect("/");
-  }
+  // Active-trial customers reach this page when they click "Upgrade" /
+  // "Choose a plan" — that's a normal customer want, not a redirect-out
+  // situation. The previous gate ("trial not yet expired → /") was
+  // bouncing them straight back to the dashboard, severing the upgrade
+  // funnel. Now we serve the page in both cases and adapt copy.
+  const trialExpired = new Date(trial.expires_at) < new Date();
 
   // For All-Access description, count currently-sellable states.
   const { count: stateCount } = await supabase
@@ -79,11 +80,13 @@ export default async function TrialExpiredPage() {
       <div className="mx-auto max-w-3xl space-y-6 pt-12">
         <Card>
           <CardHeader>
-            <CardTitle>Your trial has ended</CardTitle>
+            <CardTitle>
+              {trialExpired ? "Your trial has ended" : "Choose a plan"}
+            </CardTitle>
             <CardDescription>
-              Pick a plan to keep your data flowing. Your trial state and saved
-              filters are preserved — subscribe within 30 days and you pick up
-              right where you left off.
+              {trialExpired
+                ? "Pick a plan to keep your data flowing. Your trial state and saved filters are preserved — subscribe within 30 days and you pick up right where you left off."
+                : "Subscribe any time during your trial to lock in your plan. Your trial state and saved filters carry over automatically."}
             </CardDescription>
           </CardHeader>
         </Card>
