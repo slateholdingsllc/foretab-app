@@ -27,19 +27,30 @@ type SellableState = {
  *   - no tier (trial-only): show the trial state, no edit form. Direct
  *                   to upgrade for expansion.
  *
+ * Every variant leads with a "Business Location" row (the customer's
+ * self-declared operating state, captured at signup). That field lived
+ * on the Profile card previously and read as a duplicate of the trial
+ * state next door; surfacing it here keeps the two location-related
+ * fields side-by-side and clearly distinct.
+ *
  * Tier-limit enforcement is duplicated on the server (updateCustomerStates
  * validates against TIER_STATE_COUNT) — the form-level limit is a UX hint,
  * not the security control.
  */
 export function StateManagementSection({
   tier,
+  businessState,
   grantedStates,
   sellableStates,
 }: {
   tier: Tier | null;
+  businessState: string | null;
   grantedStates: GrantedState[];
   sellableStates: SellableState[];
 }) {
+  const businessLocationDisplay = businessState
+    ? `${getStateName(businessState) ?? businessState} (${businessState})`
+    : "—";
   const sortedSellable = [...sellableStates].sort((a, b) => {
     const an = getStateName(a.state_code ?? "") ?? a.state_code ?? "";
     const bn = getStateName(b.state_code ?? "") ?? b.state_code ?? "";
@@ -56,6 +67,10 @@ export function StateManagementSection({
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const trialStateDisplay = grantedDisplay
+    .map((s) => `${s.name} (${s.code})`)
+    .join(", ") || "—";
+
   // -- Trial-only customer --
   if (!tier) {
     return (
@@ -63,22 +78,10 @@ export function StateManagementSection({
         <CardHeader>
           <CardTitle>States</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {grantedDisplay.length > 0 ? (
-            <>
-              <p className="text-muted-foreground">Your trial state:</p>
-              <ul className="space-y-1">
-                {grantedDisplay.map((s) => (
-                  <li key={s.id} className="font-medium">
-                    {s.name} ({s.code})
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="text-muted-foreground">No states selected yet.</p>
-          )}
-          <p className="text-xs text-muted-foreground">
+        <CardContent className="space-y-2 text-sm">
+          <Row label="Business Location" value={businessLocationDisplay} />
+          <Row label="Trial State" value={trialStateDisplay} />
+          <p className="pt-2 text-xs text-muted-foreground">
             Upgrade to add more states.
           </p>
         </CardContent>
@@ -95,6 +98,7 @@ export function StateManagementSection({
           <Badge variant="brand">{grantedDisplay.length} states</Badge>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
+          <Row label="Business Location" value={businessLocationDisplay} />
           <p className="text-muted-foreground">
             Your All-Access plan includes every state Foretab currently sells.
             New states are added manually by our team as coverage expands.
@@ -127,6 +131,7 @@ export function StateManagementSection({
         </Badge>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
+        <Row label="Business Location" value={businessLocationDisplay} />
         <p className="text-muted-foreground">
           {tier === "single_state"
             ? "Your Single-state plan covers one state. Pick which one below — you can swap at any time."
@@ -140,5 +145,14 @@ export function StateManagementSection({
         />
       </CardContent>
     </Card>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-input/60 py-2 last:border-b-0 last:pb-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
   );
 }
