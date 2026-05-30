@@ -24,6 +24,10 @@ import { US_STATES_AND_DC, getStateName } from "@/lib/constants";
  * UI gate adapts to config changes without a redeploy. Server-side
  * validation re-checks the same RPC on submit; client-side prop is the
  * UX layer, not the enforcement.
+ *
+ * SPOTLIGHT overlay (visual only): the native <select> is restyled to
+ * match the Spotlight Input primitive (taller h-11, rounded-lg, bg-card,
+ * accent focus ring). Logic, options, and copy unchanged.
  */
 export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
   const [businessState, setBusinessState] = useState<string>("");
@@ -40,7 +44,7 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
           name="business_state_picker"
           value={businessState}
           onChange={(e) => setBusinessState(e.target.value)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex h-11 w-full rounded-lg border border-input bg-card px-3.5 py-2 text-[15px] tracking-[-0.005em] text-foreground transition-colors hover:border-surface-3 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[color:var(--color-accent-ring)]"
         >
           <option value="">Select your state…</option>
           {US_STATES_AND_DC.map((s) => (
