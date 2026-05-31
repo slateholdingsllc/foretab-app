@@ -20,6 +20,13 @@ import { createClient } from "@/lib/supabase/server";
  * refusing to render the gate. The legal posture is "we cannot
  * proceed without verifying" — better to refuse than to silently
  * default to the empty set (which would let every customer through).
+ *
+ * AUDIT ARCHITECTURE: this accessor is the single shared source-of-
+ * truth path for every customer-side enforcement of the exclusion
+ * list. See `foretab-engine/docs/regulatory-posture.md` § 3.1 for the
+ * four-check audit posture and the table of four call sites that all
+ * route through this function. Adding a hardcoded fallback here would
+ * break the drift-free architectural property documented in § 3.1.
  */
 export async function getExcludedBusinessStates(): Promise<string[]> {
   const supabase = await createClient();

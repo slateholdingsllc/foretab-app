@@ -7,9 +7,25 @@ import { signInWithGoogle } from "@/lib/actions/auth";
 export function GoogleButton({
   next = "/",
   businessState,
+  disabled = false,
 }: {
   next?: string;
   businessState?: string;
+  /**
+   * External disable signal. On /signup, SignupGate uses this to block the
+   * Google flow until the excluded-state acknowledgment checkbox is
+   * checked — same gating as the email/password submit button. The Google
+   * OAuth flow itself cannot carry the acknowledgment timestamp in this
+   * PR (Supabase signInWithOAuth has no user_metadata pass-through that
+   * survives PKCE callback in a clean way), so Google signups land with
+   * customers.excluded_state_acknowledgment_at = NULL. UI-enforcement is
+   * the contractual hook for the Google path; persistence-of-timestamp
+   * is tracked as a follow-up.
+   *
+   * Defaults to false so /login (returning user, no SignupGate parent)
+   * is unaffected.
+   */
+  disabled?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -26,7 +42,12 @@ export function GoogleButton({
         });
       }}
     >
-      <Button type="submit" variant="outline" className="w-full" disabled={pending}>
+      <Button
+        type="submit"
+        variant="outline"
+        className="w-full"
+        disabled={pending || disabled}
+      >
         <GoogleIcon />
         {pending ? "Redirecting..." : "Continue with Google"}
       </Button>
