@@ -372,7 +372,15 @@ export async function updatePassword(formData: FormData): Promise<AuthActionResu
 }
 
 export async function resendVerification(formData: FormData): Promise<AuthActionResult> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  // Defensive normalization: spaces in the local part are structurally
+  // a `+` that was URL-decoded somewhere upstream (see page-side note
+  // in src/app/(auth)/verify-email/page.tsx). Belt-and-suspenders here
+  // so a future caller that mis-encodes can't hand Supabase a malformed
+  // email and trigger the silent dead-end this action originally hid.
+  const email = String(formData.get("email") ?? "")
+    .replace(/ /g, "+")
+    .trim()
+    .toLowerCase();
   if (!email) return { ok: false, error: "Email is required." };
 
   const origin = await getRequestOrigin();
@@ -390,21 +398,26 @@ export async function resendVerification(formData: FormData): Promise<AuthAction
     return { ok: true };
   }
 
-  // PATH B — same admin.generateLink + Resend handoff as signUp. The
-  // user already exists in auth.users (from the original signUp call);
-  // generateLink with type='signup' produces a fresh action_link for
-  // an unverified user.
+  // PATH B — admin.generateLink + Resend handoff. CRITICAL: type must
+  // be 'magiclink', NOT 'signup'. admin.generateLink({type:'signup'})
+  // is for NEW users only — Supabase rejects it for an existing user
+  // (the comment in this block prior to PR #40 incorrectly claimed
+  // Supabase ignored the password for an existing-user signup link;
+  // it actually rejects the entire call). The resend path runs against
+  // users who already exist (unverified-but-created from the original
+  // signUp call), so magiclink is the correct variant:
+  //   - works for existing users (verified OR unverified)
+  //   - when user is unverified, clicking the link also sets
+  //     email_confirmed_at (same as signup verify) — exactly the
+  //     behavior we want
+  //   - produces an OTP-flow URL, same post-click chain as signup:
+  //     /auth/v1/verify → /auth/callback → /auth/finalize (PR #34)
+  //   - takes no password param (no throwaway needed)
   const admin = createAdminClient();
   const { data: linkData, error: linkError } = await admin.auth.admin
     .generateLink({
-      type: "signup",
+      type: "magiclink",
       email,
-      // generateLink requires password for type='signup' even on resend.
-      // For an existing unverified user we don't know the password — but
-      // generateLink's signup variant accepts ANY password as a no-op
-      // when the user exists (it just refreshes the verification token).
-      // Pragmatic: pass a throwaway. Supabase ignores it for this path.
-      password: "_resend_no_password_change",
       options: { redirectTo: emailRedirectTo },
     });
   if (linkError) {

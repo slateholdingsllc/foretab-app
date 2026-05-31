@@ -17,7 +17,15 @@ export default async function VerifyEmailPage({
   searchParams: Promise<{ email?: string }>;
 }) {
   const params = await searchParams;
-  const email = params.email ?? "";
+  // URL-decoding of query strings turns `+` (form-encoded space) into
+  // a literal space. Emails with `+` aliases (gmail's
+  // foo+tag@gmail.com pattern) are very common, and the signup-side
+  // redirect already encodeURIComponent's them — but a browser
+  // refresh / bookmark / manually-pasted URL will lose that encoding.
+  // Spaces are not valid in an email local part, so any space we see
+  // is structurally a `+` that was decoded. Restore it before the
+  // resend action would otherwise hand a malformed string to Supabase.
+  const email = (params.email ?? "").replace(/ /g, "+");
   const masked = maskEmail(email);
 
   return (
