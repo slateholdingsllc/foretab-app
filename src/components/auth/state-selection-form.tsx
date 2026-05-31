@@ -33,6 +33,14 @@ type Props = {
   initialBusinessState: string | null;
 };
 
+/**
+ * SPOTLIGHT overlay (visual only): the native <select>, the trial-state
+ * radio list, and its rows are restyled to the Spotlight surface — taller
+ * rounded-lg select on bg-card with an accent focus ring, softer list
+ * container, accent-colored radios, warm surface-2 hover. All logic,
+ * props (incl. initialBusinessState + the trial-radio prefill from
+ * PR #37), validation, options, and copy are preserved verbatim.
+ */
 export function StateSelectionForm({
   states,
   excludedStates,
@@ -100,7 +108,7 @@ export function StateSelectionForm({
             value={businessState}
             onChange={(e) => setBusinessState(e.target.value)}
             disabled={pending}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex h-11 w-full rounded-lg border border-input bg-card px-3.5 py-2 text-[15px] tracking-[-0.005em] text-foreground transition-colors hover:border-surface-3 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[color:var(--color-accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="">Select your state…</option>
             {US_STATES_AND_DC.map((s) => (
@@ -136,11 +144,11 @@ export function StateSelectionForm({
               to evaluate a different state during trial.
             </p>
           )}
-          <div className="max-h-80 overflow-y-auto rounded-md border border-input divide-y">
+          <div className="max-h-80 overflow-y-auto rounded-lg border border-input divide-y divide-border-soft">
             {states.map((s) => (
               <label
                 key={s.id}
-                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent"
+                className="flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-surface-2"
               >
                 <input
                   type="radio"
@@ -149,7 +157,7 @@ export function StateSelectionForm({
                   checked={selectedTrialState === s.id}
                   onChange={() => setSelectedTrialState(s.id)}
                   disabled={pending}
-                  className="h-4 w-4"
+                  className="h-4 w-4 accent-[color:var(--color-accent)]"
                 />
                 <div className="flex flex-1 items-center justify-between">
                   <span className="font-medium">{s.state_code}</span>
