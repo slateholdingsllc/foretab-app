@@ -176,11 +176,44 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   }
   const businessState = stateResult.businessState;
 
+  // Required: explicit excluded-state representation timestamp from
+  // SignupGate's acknowledgment checkbox (R1 of the 2026-05-30 dispatch;
+  // see regulatory-posture.md § 3.1). Captured at the moment the
+  // customer checked the box, NOT at action-invocation time, so the
+  // saved evidence matches the moment of affirmation rather than the
+  // request-handling moment. The client gate prevents submit until
+  // checkbox is checked; this is the server-side belt to catch any
+  // bypassed client (e.g. devtools-crafted POST). Validate as ISO 8601;
+  // the migration's trigger handles malformed values gracefully (falls
+  // through to NULL) but we reject here to enforce the contract at the
+  // signup boundary.
+  const acknowledgedAtRaw = String(
+    formData.get("excluded_state_acknowledgment_at") ?? "",
+  ).trim();
+  if (!acknowledgedAtRaw) {
+    return {
+      ok: false,
+      error:
+        "Please confirm the excluded-state representation to continue.",
+    };
+  }
+  const acknowledgedAtParsed = Date.parse(acknowledgedAtRaw);
+  if (Number.isNaN(acknowledgedAtParsed)) {
+    return {
+      ok: false,
+      error: "Acknowledgment timestamp is malformed. Please try again.",
+    };
+  }
+
   const origin = await getRequestOrigin();
   const flow = signupFlowVersion();
   const userMetadata = {
     signup_source: signupSource,
     business_state: businessState,
+    // Stored as ISO 8601 string. The Phase 2 Task 11 trigger casts to
+    // timestamptz at customer-provisioning time (see migration
+    // 20260530000001_phase2_excluded_state_ack_at.sql).
+    excluded_state_acknowledgment_at: new Date(acknowledgedAtParsed).toISOString(),
   };
   const emailRedirectTo = `${origin}/auth/callback?next=/state-selection`;
 
