@@ -372,7 +372,15 @@ export async function updatePassword(formData: FormData): Promise<AuthActionResu
 }
 
 export async function resendVerification(formData: FormData): Promise<AuthActionResult> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  // Defensive normalization: spaces in the local part are structurally
+  // a `+` that was URL-decoded somewhere upstream (see page-side note
+  // in src/app/(auth)/verify-email/page.tsx). Belt-and-suspenders here
+  // so a future caller that mis-encodes can't hand Supabase a malformed
+  // email and trigger the silent dead-end this action originally hid.
+  const email = String(formData.get("email") ?? "")
+    .replace(/ /g, "+")
+    .trim()
+    .toLowerCase();
   if (!email) return { ok: false, error: "Email is required." };
 
   const origin = await getRequestOrigin();
