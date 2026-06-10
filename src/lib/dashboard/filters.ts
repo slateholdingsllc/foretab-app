@@ -125,6 +125,7 @@ export function parseFiltersFromSearchParams(
     sort: parseSort(get("sort")),
     showInactive: get("inactive") === "1",
     dispositionTab: parseDispositionTab(get("tab")),
+    newThisWeek: get("ntw") === "1",
   };
 }
 
@@ -146,6 +147,7 @@ export function serializeFiltersToSearchParams(filters: FilterState): URLSearchP
   if (filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab) {
     params.set("tab", filters.dispositionTab);
   }
+  if (filters.newThisWeek) params.set("ntw", "1");
   return params;
 }
 
@@ -169,6 +171,7 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.businessArchetypes.length > 0 ||
     filters.daysWindow !== null ||
     filters.sort !== DEFAULT_FILTER_STATE.sort ||
-    filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab
+    filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab ||
+    filters.newThisWeek
   );
 }

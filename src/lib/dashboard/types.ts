@@ -135,6 +135,10 @@ export type DashboardRecord = {
   disposition: BusinessDisposition | null;
   notes: string | null;
   classified_at: string; // ISO timestamp
+  /** YYYY-MM-DD, or null when the state doesn't provide issue dates (CO, MO permanently; CT/NV partially) */
+  issued_date: string | null;
+  /** ISO timestamp; always populated — backfilled from raw_records.created_at for pre-backfill rows */
+  first_observed_at: string | null;
   state_id: string;
   state_code: string | null;
   /** Reserved for the channel-discipline audit column. Always null until Agent A adds the column. */
@@ -185,6 +189,12 @@ export type FilterState = {
    * with that exact status.
    */
   dispositionTab: DispositionTab;
+  /**
+   * When true, filters to records where COALESCE(issued_date, first_observed_at)
+   * is within the last 7 days. Uses PostgREST OR: issued_date >= threshold
+   * OR (issued_date IS NULL AND first_observed_at >= threshold).
+   */
+  newThisWeek: boolean;
 };
 
 export const DEFAULT_FILTER_STATE: FilterState = {
@@ -196,6 +206,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   sort: "newest_first",
   showInactive: false,
   dispositionTab: "all",
+  newThisWeek: false,
 };
 
 export const PAGE_SIZE = 50;
@@ -218,9 +229,14 @@ export type StateHealthEntry = {
 export type StateHealthMap = Map<string, StateHealthEntry>;
 
 export type CursorPayload = {
-  /** classified_at of the last record on the previous page (ISO timestamp) */
-  c: string;
-  /** id of the last record (tiebreaker for identical classified_at) */
+  /**
+   * issued_date of the last record (YYYY-MM-DD), or null when the record
+   * has no issued_date and sorted in the first_observed_at fallback zone.
+   */
+  d: string | null;
+  /** first_observed_at ISO timestamp (always populated; tiebreaker for null-issued zone) */
+  f: string;
+  /** id tiebreaker for identical (d, f) pairs */
   i: string;
 };
 

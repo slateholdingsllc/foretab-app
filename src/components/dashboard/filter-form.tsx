@@ -118,6 +118,8 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       // not the sidebar form. Preserve whatever's currently in the URL so
       // submitting the sidebar form doesn't reset the tab selection.
       dispositionTab: current.dispositionTab,
+      // newThisWeek is set via its own chip, not the sidebar form. Preserve.
+      newThisWeek: current.newThisWeek,
     };
 
     const params = serializeFiltersToSearchParams(next);

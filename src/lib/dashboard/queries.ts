@@ -183,13 +183,19 @@ export async function fetchDashboardPage(args: {
       customer_status,
       notes,
       classified_at,
+      issued_date,
+      first_observed_at,
       state_id,
       businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
       { count: "exact" },
-    );
+    )
+    // Gate: only records Agent A has explicitly published. Prevents pre-publish
+    // classifications from appearing to customers and is the standing rule for
+    // all future classifier runs.
+    .eq("published_to_customers", true);
 
   // -- Filters --
 
@@ -223,6 +229,18 @@ export async function fetchDashboardPage(args: {
       Date.now() - filters.daysWindow * 24 * 60 * 60 * 1000,
     ).toISOString();
     query = query.gte("classified_at", threshold);
+  }
+
+  if (filters.newThisWeek) {
+    // COALESCE(issued_date, first_observed_at) >= 7 days ago.
+    // PostgREST can't express COALESCE in a filter, so we decompose:
+    // issued_date present → compare issued_date; absent → compare first_observed_at.
+    const threshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const dateStr = threshold.toISOString().slice(0, 10); // YYYY-MM-DD for date column
+    const tsStr = threshold.toISOString();
+    query = query.or(
+      `issued_date.gte.${dateStr},and(issued_date.is.null,first_observed_at.gte.${tsStr})`,
+    );
   }
 
   const customerStatusOr = buildCustomerStatusOrClause(
@@ -268,21 +286,48 @@ export async function fetchDashboardPage(args: {
   // -- Sort + cursor --
 
   const ascending = filters.sort === "oldest_first";
+  // Sort by issued_date NULLS LAST first, then first_observed_at, then id.
+  // Records without issued_date (CO/MO permanently; CT/NV partially) fall
+  // through to the first_observed_at zone. NULLS LAST on both sort
+  // directions keeps the zones stable regardless of ascending/descending.
   query = query
-    .order("classified_at", { ascending })
+    .order("issued_date", { ascending, nullsFirst: false })
+    .order("first_observed_at", { ascending })
     .order("id", { ascending });
 
   if (cursor) {
-    // Composite cursor: rows strictly past (cursor.c, cursor.i) in sort
-    // direction. PostgREST .or() syntax: comma-separated alternatives.
+    // Two-zone cursor for the (issued_date NULLS LAST, first_observed_at, id) sort.
+    // cursor.d = issued_date of last-seen record (null when in first_observed_at zone).
+    // cursor.f = first_observed_at of last-seen record (always present).
+    // cursor.i = id tiebreaker.
     if (ascending) {
-      query = query.or(
-        `classified_at.gt.${cursor.c},and(classified_at.eq.${cursor.c},id.gt.${cursor.i})`,
-      );
+      if (cursor.d !== null) {
+        // Last record had issued_date — next records are: later issued_date, OR
+        // same issued_date + later first_observed_at, OR same both + later id,
+        // OR null issued_date (null zone comes last in ASC NULLS LAST).
+        query = query.or(
+          `issued_date.gt.${cursor.d},and(issued_date.eq.${cursor.d},first_observed_at.gt.${cursor.f}),and(issued_date.eq.${cursor.d},first_observed_at.eq.${cursor.f},id.gt.${cursor.i}),issued_date.is.null`,
+        );
+      } else {
+        // In null-issued_date zone — only null-issued records remain.
+        query = query.or(
+          `and(issued_date.is.null,first_observed_at.gt.${cursor.f}),and(issued_date.is.null,first_observed_at.eq.${cursor.f},id.gt.${cursor.i})`,
+        );
+      }
     } else {
-      query = query.or(
-        `classified_at.lt.${cursor.c},and(classified_at.eq.${cursor.c},id.lt.${cursor.i})`,
-      );
+      if (cursor.d !== null) {
+        // Last record had issued_date — next records: earlier issued_date, OR
+        // same issued_date + earlier first_observed_at, OR same both + earlier id,
+        // OR null issued_date (null zone comes after all non-null in DESC NULLS LAST).
+        query = query.or(
+          `issued_date.lt.${cursor.d},and(issued_date.eq.${cursor.d},first_observed_at.lt.${cursor.f}),and(issued_date.eq.${cursor.d},first_observed_at.eq.${cursor.f},id.lt.${cursor.i}),issued_date.is.null`,
+        );
+      } else {
+        // In null-issued_date zone.
+        query = query.or(
+          `and(issued_date.is.null,first_observed_at.lt.${cursor.f}),and(issued_date.is.null,first_observed_at.eq.${cursor.f},id.lt.${cursor.i})`,
+        );
+      }
     }
   }
 
@@ -322,6 +367,8 @@ export async function fetchDashboardPage(args: {
     disposition: null,
     notes: r.notes,
     classified_at: r.classified_at,
+    issued_date: r.issued_date ?? null,
+    first_observed_at: r.first_observed_at ?? null,
     state_id: r.state_id,
     state_code: r.states?.state_code ?? null,
     // Reserved column — null until Agent A adds classified_records.data_source_channel
@@ -348,7 +395,15 @@ export async function fetchDashboardPage(args: {
   const hasMore = rows.length > PAGE_SIZE;
   const last = records[records.length - 1];
   const nextCursor =
-    hasMore && last ? encodeCursor({ c: last.classified_at, i: last.id }) : null;
+    hasMore && last
+      ? encodeCursor({
+          d: last.issued_date ?? null,
+          // first_observed_at is always backfilled; classified_at is the safe fallback
+          // if somehow absent (should not occur after Agent A's backfill).
+          f: last.first_observed_at ?? last.classified_at,
+          i: last.id,
+        })
+      : null;
 
   return {
     records,
@@ -530,12 +585,15 @@ export async function fetchAllRecordsForExport(args: {
       customer_status,
       notes,
       classified_at,
+      issued_date,
+      first_observed_at,
       state_id,
       businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
-    );
+    )
+    .eq("published_to_customers", true);
 
   if (filters.states.length > 0) {
     const { data: stateRows } = await supabase
@@ -561,6 +619,15 @@ export async function fetchAllRecordsForExport(args: {
       Date.now() - filters.daysWindow * 24 * 60 * 60 * 1000,
     ).toISOString();
     query = query.gte("classified_at", threshold);
+  }
+
+  if (filters.newThisWeek) {
+    const threshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const dateStr = threshold.toISOString().slice(0, 10);
+    const tsStr = threshold.toISOString();
+    query = query.or(
+      `issued_date.gte.${dateStr},and(issued_date.is.null,first_observed_at.gte.${tsStr})`,
+    );
   }
 
   const customerStatusOr = buildCustomerStatusOrClause(
@@ -595,7 +662,8 @@ export async function fetchAllRecordsForExport(args: {
 
   const ascending = filters.sort === "oldest_first";
   query = query
-    .order("classified_at", { ascending })
+    .order("issued_date", { ascending, nullsFirst: false })
+    .order("first_observed_at", { ascending })
     .order("id", { ascending })
     .limit(args.limit);
 
@@ -627,6 +695,8 @@ export async function fetchAllRecordsForExport(args: {
     disposition: null,
     notes: r.notes,
     classified_at: r.classified_at,
+    issued_date: r.issued_date ?? null,
+    first_observed_at: r.first_observed_at ?? null,
     state_id: r.state_id,
     state_code: r.states?.state_code ?? null,
     data_source_channel: null,

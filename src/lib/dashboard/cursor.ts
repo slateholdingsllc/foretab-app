@@ -21,16 +21,22 @@ export function decodeCursor(encoded: string | null | undefined): CursorPayload 
     const json = Buffer.from(encoded, "base64url").toString("utf8");
     const parsed = JSON.parse(json) as unknown;
     if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      "c" in parsed &&
-      "i" in parsed &&
-      typeof (parsed as Record<string, unknown>).c === "string" &&
-      typeof (parsed as Record<string, unknown>).i === "string"
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("f" in parsed) ||
+      !("i" in parsed) ||
+      typeof (parsed as Record<string, unknown>).f !== "string" ||
+      typeof (parsed as Record<string, unknown>).i !== "string"
     ) {
-      return { c: (parsed as CursorPayload).c, i: (parsed as CursorPayload).i };
+      return null;
     }
-    return null;
+    const p = parsed as Record<string, unknown>;
+    const d = "d" in p ? p.d : null;
+    return {
+      d: typeof d === "string" ? d : null,
+      f: p.f as string,
+      i: p.i as string,
+    };
   } catch {
     return null;
   }
