@@ -158,6 +158,7 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
     sort,
     showInactive,
     dispositionTab,
+    newThisWeek: DEFAULT_FILTER_STATE.newThisWeek,
   };
 }
 
