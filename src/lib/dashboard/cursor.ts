@@ -23,20 +23,15 @@ export function decodeCursor(encoded: string | null | undefined): CursorPayload 
     if (
       typeof parsed !== "object" ||
       parsed === null ||
-      !("f" in parsed) ||
+      !("s" in parsed) ||
       !("i" in parsed) ||
-      typeof (parsed as Record<string, unknown>).f !== "string" ||
+      typeof (parsed as Record<string, unknown>).s !== "string" ||
       typeof (parsed as Record<string, unknown>).i !== "string"
     ) {
       return null;
     }
     const p = parsed as Record<string, unknown>;
-    const d = "d" in p ? p.d : null;
-    return {
-      d: typeof d === "string" ? d : null,
-      f: p.f as string,
-      i: p.i as string,
-    };
+    return { s: p.s as string, i: p.i as string };
   } catch {
     return null;
   }

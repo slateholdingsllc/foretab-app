@@ -139,6 +139,8 @@ export type DashboardRecord = {
   issued_date: string | null;
   /** ISO timestamp; always populated — backfilled from raw_records.created_at for pre-backfill rows */
   first_observed_at: string | null;
+  /** COALESCE(issued_date::timestamptz, first_observed_at) — generated column, always non-null */
+  sort_date: string | null;
   state_id: string;
   state_code: string | null;
   /** Reserved for the channel-discipline audit column. Always null until Agent A adds the column. */
@@ -229,14 +231,9 @@ export type StateHealthEntry = {
 export type StateHealthMap = Map<string, StateHealthEntry>;
 
 export type CursorPayload = {
-  /**
-   * issued_date of the last record (YYYY-MM-DD), or null when the record
-   * has no issued_date and sorted in the first_observed_at fallback zone.
-   */
-  d: string | null;
-  /** first_observed_at ISO timestamp (always populated; tiebreaker for null-issued zone) */
-  f: string;
-  /** id tiebreaker for identical (d, f) pairs */
+  /** sort_date ISO timestamp (COALESCE(issued_date::timestamptz, first_observed_at)) */
+  s: string;
+  /** id tiebreaker for identical sort_date values */
   i: string;
 };
 
