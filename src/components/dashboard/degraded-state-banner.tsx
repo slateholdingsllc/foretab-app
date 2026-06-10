@@ -1,66 +1,124 @@
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { getStateName } from "@/lib/constants";
+import { classifyFreshness, type RefreshFrequency } from "@/lib/dashboard/freshness";
 import type { StateHealthMap } from "@/lib/dashboard/types";
 
 /**
- * Banner shown above the feed when any of the customer's accessible
- * states is in degraded health status (data_source_health.status
- * yellow or red). The signal here is OPERATOR-set, not customer-
- * computed from age — Phase 1 ingestion sets status based on scrape
- * outcomes, and a state can be in degraded status even if its
- * last_refresh_at was recent (e.g., the most recent run errored).
+ * Sticky banner pinned above the feed when any accessible state has stale
+ * or degraded data.
  *
- * If no degraded states, this component renders nothing.
+ * Two signals are combined:
+ *   1. Operator-set status (yellow/red) — pipeline reported an error.
+ *   2. Cadence-aware freshness (orange/red) — data is meaningfully late
+ *      relative to the state's refresh schedule (e.g. daily state missing
+ *      3+ runs triggers orange).
  *
- * Per dispatch §12.2: "For states with known degraded status... show a
- * dashboard banner: 'Rhode Island data is currently degraded due to a
- * state agency system migration. Last verified: [date].'" — we
- * generalize the pattern across all degraded states the customer
- * accesses.
+ * Severity escalation:
+ *   amber  = any state yellow/orange (behind schedule, not yet failing)
+ *   red    = any state red freshness OR operator status=red (actively failing)
+ *
+ * No dismiss — stale data is a trust signal; customers must not be able
+ * to accidentally hide it.
  */
 export function DegradedStateBanner({ healthMap }: { healthMap: StateHealthMap }) {
-  const degraded = Array.from(healthMap.values()).filter(
-    (h) => h.status === "yellow" || h.status === "red",
-  );
-  if (degraded.length === 0) return null;
+  const entries: Array<{
+    name: string;
+    isRed: boolean;
+    staleDays: number | null;
+    lastRefreshAt: string | null;
+  }> = [];
+
+  for (const h of healthMap.values()) {
+    const freshness = classifyFreshness({
+      refreshFrequency: h.refresh_frequency as RefreshFrequency | null,
+      lastRefreshAt: h.last_refresh_at,
+    });
+
+    const operatorDegraded = h.status === "yellow" || h.status === "red";
+    const freshnessDegraded = freshness === "orange" || freshness === "red";
+    if (!operatorDegraded && !freshnessDegraded) continue;
+
+    const staleDays =
+      h.last_refresh_at !== null
+        ? Math.floor(
+            (Date.now() - new Date(h.last_refresh_at).getTime()) /
+              (24 * 60 * 60 * 1000),
+          )
+        : null;
+
+    entries.push({
+      name: getStateName(h.state_code ?? "") ?? h.state_code ?? "Unknown",
+      isRed: h.status === "red" || freshness === "red",
+      staleDays,
+      lastRefreshAt: h.last_refresh_at,
+    });
+  }
+
+  if (entries.length === 0) return null;
+
+  const hasRed = entries.some((e) => e.isRed);
 
   return (
-    <Alert className="mb-4">
-      <AlertDescription>
-        <p className="text-sm font-medium">
-          {degraded.length === 1
-            ? "Heads up: one of your states has a data refresh issue."
-            : `Heads up: ${degraded.length} of your states have data refresh issues.`}
-        </p>
-        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-          {degraded.map((h) => (
-            <li key={h.state_id}>
-              <span className="font-medium text-foreground">
-                {getStateName(h.state_code ?? "") ?? h.state_code}
-              </span>
-              {" — "}
-              {h.status === "red" ? (
-                <>data ingest is currently failing</>
-              ) : (
-                <>recent ingest errors</>
-              )}
-              {h.last_refresh_at ? (
-                <>
-                  ; last successful refresh{" "}
-                  <time dateTime={h.last_refresh_at}>
-                    {new Date(h.last_refresh_at).toLocaleDateString()}
-                  </time>
-                </>
-              ) : null}
-              .
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2 text-xs text-muted-foreground">
-          We&apos;re aware and working on it. Records for these states are still
-          shown but may not include the latest licenses.
-        </p>
-      </AlertDescription>
-    </Alert>
+    <div
+      className={cn(
+        "sticky top-0 z-10 -mx-6 mb-4 border-b px-6 py-3",
+        hasRed
+          ? "border-red-300 bg-red-50 dark:border-red-800/40 dark:bg-red-950/20"
+          : "border-amber-300 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-950/20",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle
+          className={cn(
+            "mt-0.5 h-4 w-4 shrink-0",
+            hasRed
+              ? "text-red-700 dark:text-red-400"
+              : "text-amber-700 dark:text-amber-400",
+          )}
+        />
+        <div>
+          <p
+            className={cn(
+              "text-sm font-semibold",
+              hasRed
+                ? "text-red-700 dark:text-red-400"
+                : "text-amber-800 dark:text-amber-300",
+            )}
+          >
+            {hasRed
+              ? "Data refresh is failing for some states"
+              : "Data refresh is behind schedule for some states"}
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {entries.map((e) => (
+              <li key={e.name} className="text-sm text-foreground">
+                <span className="font-medium">{e.name}</span>
+                {" — "}
+                {e.lastRefreshAt !== null ? (
+                  <>
+                    last refreshed{" "}
+                    <time dateTime={e.lastRefreshAt}>
+                      {new Date(e.lastRefreshAt).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </time>
+                    {e.staleDays !== null && e.staleDays > 0 && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        ({e.staleDays}d ago)
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">no refresh data</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
   );
 }
