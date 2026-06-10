@@ -441,9 +441,20 @@ export async function fetchCustomerContext(): Promise<{
 
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, email, status, current_tier")
+    .select("id, email, status, current_tier, account_type")
     .eq("auth_user_id", user.id)
     .maybeSingle();
+
+  // Internal accounts don't surface trial countdowns — they have no trial.
+  if (customer?.account_type === "internal") {
+    return {
+      customerId: customer.id,
+      email: customer.email ?? user.email ?? null,
+      status: customer.status ?? null,
+      currentTier: customer.current_tier ?? null,
+      trialExpiresAt: null,
+    };
+  }
 
   let trialExpiresAt: string | null = null;
   if (customer?.id) {
@@ -472,6 +483,32 @@ export async function fetchCustomerContext(): Promise<{
  */
 export async function fetchAccessibleStateCodes(): Promise<string[]> {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  // Internal accounts see all sellable states (no customer_states rows exist
+  // for them; customer_accessible_state_ids() handles RLS via the DB function,
+  // but this list populates the state filter dropdown separately).
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("account_type")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (customer?.account_type === "internal") {
+    const { data: states, error } = await supabase
+      .from("states_active_for_sale")
+      .select("state_code")
+      .order("state_code");
+    if (error) return [];
+    return (states ?? [])
+      .map((s: { state_code: string | null }) => s.state_code)
+      .filter((s): s is string => Boolean(s));
+  }
+
   const { data, error } = await supabase
     .from("customer_states")
     .select("states ( state_code )")
@@ -779,11 +816,16 @@ export async function fetchExportStatus(): Promise<ExportStatus> {
 
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, current_tier")
+    .select("id, current_tier, account_type")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (!customer) {
     return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: false };
+  }
+
+  // Internal accounts: no trial cap, full export access (matches paid UX).
+  if (customer.account_type === "internal") {
+    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: true };
   }
 
   if (customer.current_tier) {
