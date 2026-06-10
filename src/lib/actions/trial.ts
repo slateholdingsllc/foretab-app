@@ -92,7 +92,7 @@ export async function selectTrialState(formData: FormData): Promise<TrialActionR
   // Resolve the customer row created by the auth.users trigger.
   const { data: customer, error: customerError } = await supabase
     .from("customers")
-    .select("id, status, business_state")
+    .select("id, status, business_state, account_type")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -101,6 +101,13 @@ export async function selectTrialState(formData: FormData): Promise<TrialActionR
       ok: false,
       error: "Customer profile not yet provisioned. Try again in a moment.",
     };
+  }
+
+  // Internal accounts bypass state-selection and the geographic gate — they
+  // access all sellable states via customer_accessible_state_ids() without
+  // a trial. Redirect to the dashboard immediately.
+  if (customer.account_type === "internal") {
+    redirect("/");
   }
 
   // Idempotency: if a trial already exists for this customer, skip creation.

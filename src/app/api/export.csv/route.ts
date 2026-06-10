@@ -42,19 +42,23 @@ export async function GET(request: NextRequest) {
 
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, current_tier")
+    .select("id, current_tier, account_type")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (!customer) {
     return new NextResponse("Customer profile not found.", { status: 404 });
   }
 
+  // Internal accounts bypass trial expiry, payment check, and cumulative cap.
+  const isInternal = customer.account_type === "internal";
   // Determine cap.
-  const isTrial = !customer.current_tier;
+  const isTrial = !isInternal && !customer.current_tier;
   let cap: number;
   let alreadyExported = 0;
 
-  if (isTrial) {
+  if (isInternal) {
+    cap = PAID_EXPORT_MAX_ROWS;
+  } else if (isTrial) {
     // Confirm the trial is actually active — if their trial is expired AND
     // they have no tier, they shouldn't be able to export at all.
     const { data: trial } = await supabase

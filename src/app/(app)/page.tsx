@@ -70,7 +70,7 @@ export default async function DashboardPage({
   // state-selection hasn't run yet.
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, current_tier")
+    .select("id, current_tier, account_type")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -81,13 +81,17 @@ export default async function DashboardPage({
     redirect("/verify-email");
   }
 
+  // Internal (founder/test) accounts bypass all trial gates. They get access
+  // to all sellable states via customer_accessible_state_ids() without a trial.
+  const isInternal = customer.account_type === "internal";
+
   const { data: trial } = await supabase
     .from("trials")
     .select("id, expires_at")
     .eq("customer_id", customer.id)
     .maybeSingle();
 
-  if (!trial) {
+  if (!trial && !isInternal) {
     redirect("/state-selection");
   }
 
@@ -96,7 +100,8 @@ export default async function DashboardPage({
   // preserved for 30 days so subscribing within that window picks up
   // where they left off.
   if (
-    trial.expires_at &&
+    !isInternal &&
+    trial?.expires_at &&
     new Date(trial.expires_at) < new Date() &&
     !customer.current_tier
   ) {
