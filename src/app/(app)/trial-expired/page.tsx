@@ -78,6 +78,16 @@ export default async function TrialExpiredPage() {
   return (
     <div className="min-h-screen bg-muted/30 p-4">
       <div className="mx-auto max-w-3xl space-y-6 pt-12">
+        {!trialExpired && (
+          <div>
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+            >
+              ← Back to dashboard
+            </Link>
+          </div>
+        )}
         <Card>
           <CardHeader>
             <CardTitle>
