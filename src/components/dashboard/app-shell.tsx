@@ -1,5 +1,6 @@
+import { cn } from "@/lib/utils";
 import type { SavedFilter } from "@/lib/dashboard/saved-filters";
-import type { FilterState } from "@/lib/dashboard/types";
+import type { FilterState, StateHealthMap } from "@/lib/dashboard/types";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 
@@ -23,6 +24,8 @@ export function AppShell({
   accessibleStateCodes,
   savedFilters,
   currentFilters,
+  healthMap,
+  viewport = "scroll",
   children,
 }: {
   email: string | null;
@@ -31,24 +34,47 @@ export function AppShell({
   accessibleStateCodes: string[];
   savedFilters: SavedFilter[];
   currentFilters: FilterState;
+  /** Thread from fetchDataSourceHealthMap; drives sidebar heartbeat + mobile topbar indicator. */
+  healthMap?: StateHealthMap | null;
+  /**
+   * "scroll" — page-level scroll, min-h-screen (account page, onboarding).
+   * "full"   — viewport-height-locked (worklist); each column scrolls independently.
+   */
+  viewport?: "scroll" | "full";
   children: React.ReactNode;
 }) {
+  const full = viewport === "full";
   return (
     // -m-4 negates the parent (app)/layout's p-4 so the dashboard runs
-    // edge-to-edge; min-h-screen fills the viewport. State-selection (the
-    // other (app)/* page) is unaffected — it has its own centered-card
-    // layout that benefits from the layout's padding.
-    <div className="-m-4 min-h-screen bg-background">
+    // edge-to-edge. viewport="full" uses h-dvh so the worklist columns
+    // scroll independently; viewport="scroll" keeps the original min-h-screen.
+    <div
+      className={cn(
+        "-m-4 bg-background",
+        full ? "flex h-dvh flex-col" : "min-h-screen",
+      )}
+    >
       <TopBar
         email={email}
         currentTier={currentTier}
         trialExpiresAt={trialExpiresAt}
         savedFilters={savedFilters}
         currentFilters={currentFilters}
+        healthMap={healthMap}
       />
-      <div className="flex">
-        <Sidebar accessibleStateCodes={accessibleStateCodes} />
-        <main className="min-w-0 flex-1 p-6">{children}</main>
+      <div className={cn("flex", full && "min-h-0 flex-1")}>
+        <Sidebar
+          accessibleStateCodes={accessibleStateCodes}
+          healthMap={healthMap ?? new Map()}
+        />
+        <main
+          className={cn(
+            "min-w-0 flex-1",
+            full ? "min-h-0" : "p-6",
+          )}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

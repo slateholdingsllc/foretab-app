@@ -5,7 +5,8 @@ import { BrandMark } from "@/components/ui/brand-mark";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { SavedFilter } from "@/lib/dashboard/saved-filters";
-import type { FilterState } from "@/lib/dashboard/types";
+import type { FilterState, StateHealthMap } from "@/lib/dashboard/types";
+import { DataHealthIndicator } from "./data-health-indicator";
 import { SavedFiltersMenu } from "./saved-filters-menu";
 import { TrialBadge } from "./trial-badge";
 
@@ -15,6 +16,7 @@ import { TrialBadge } from "./trial-badge";
  * Layout (left → right):
  *   - BrandMark + "foretab" wordmark, links home
  *   - flex spacer
+ *   - DataHealthIndicator (mobile only, lg:hidden — sidebar heartbeat covers desktop)
  *   - SavedFiltersMenu (Views)
  *   - tier soft-accent chip
  *   - TrialBadge (only renders when on trial)
@@ -33,12 +35,14 @@ export function TopBar({
   trialExpiresAt,
   savedFilters,
   currentFilters,
+  healthMap,
 }: {
   email: string | null;
   currentTier: string | null;
   trialExpiresAt: string | null;
   savedFilters: SavedFilter[];
   currentFilters: FilterState;
+  healthMap?: StateHealthMap | null;
 }) {
   return (
     <header className="border-b border-border bg-card">
@@ -55,6 +59,14 @@ export function TopBar({
         </Link>
 
         <div className="flex flex-1 items-center justify-end gap-3">
+          {healthMap ? (
+            <DataHealthIndicator
+              healthMap={healthMap}
+              variant="topbar"
+              className="lg:hidden"
+            />
+          ) : null}
+
           <SavedFiltersMenu
             savedFilters={savedFilters}
             currentFilters={currentFilters}

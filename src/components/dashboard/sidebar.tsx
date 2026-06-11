@@ -1,8 +1,11 @@
 import { Label } from "@/components/ui/label";
+import type { StateHealthMap } from "@/lib/dashboard/types";
 import { FilterForm } from "./filter-form";
+import { DataHealthIndicator } from "./data-health-indicator";
 
 /**
- * Dashboard sidebar. Holds the filter form + Request Coverage CTA.
+ * Dashboard sidebar. Holds the filter form + Request Coverage CTA + the
+ * DataHealthHeartbeat in the foot.
  *
  * Surface: bg-card, with a 1px right border — slight tone separation
  * from the main bg. Section headers use Label variant="eyebrow" for
@@ -16,12 +19,14 @@ import { FilterForm } from "./filter-form";
  */
 export function Sidebar({
   accessibleStateCodes,
+  healthMap,
 }: {
   accessibleStateCodes: string[];
+  healthMap: StateHealthMap;
 }) {
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-border bg-card lg:block">
-      <div className="space-y-7 p-6">
+    <aside className="hidden w-72 shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
+      <div className="flex-1 space-y-7 overflow-y-auto p-6">
         <div>
           <Label variant="eyebrow">Filter</Label>
           <div className="mt-3">
@@ -46,6 +51,10 @@ export function Sidebar({
             commit you to anything (Terms § 2).
           </p>
         </div>
+      </div>
+
+      <div className="border-t border-border-soft p-4">
+        <DataHealthIndicator healthMap={healthMap} variant="sidebar" />
       </div>
     </aside>
   );

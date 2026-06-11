@@ -1,22 +1,13 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
-import { DegradedStateBanner } from "@/components/dashboard/degraded-state-banner";
 import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
 import { DensityProvider } from "@/components/dashboard/disposition/density-provider";
-import { Insights } from "@/components/dashboard/disposition/insights";
-import { RecentlyViewed } from "@/components/dashboard/disposition/recently-viewed";
 import type { StatusTabValue } from "@/components/dashboard/disposition/status-tabs";
 import { TodayPanel } from "@/components/dashboard/disposition/today-panel";
 import { Feed } from "@/components/dashboard/feed";
-import {
-  getRecentlyViewed,
-  getStatusCounts,
-} from "@/lib/disposition/actions";
-import {
-  getActivityLast30Days,
-  getDispositionFunnel,
-  getWinRateBySignal,
-} from "@/lib/disposition/insights.queries";
+import { WorklistLayout, WorklistRail } from "@/components/dashboard/worklist-layout";
+import { getStatusCounts } from "@/lib/disposition/actions";
+import { getDispositionFunnel } from "@/lib/disposition/insights.queries";
 import {
   getDueFollowUpsForToday,
   getNewHighPriority,
@@ -43,8 +34,8 @@ import { createClient } from "@/lib/supabase/server";
  *     is set). If not, send them to /state-selection to finish onboarding.
  *
  * Query path: parses URL search params into FilterState, hands off to
- * fetchDashboardPage which does the joined SELECT under RLS, then
- * renders the Feed inside the AppShell chrome.
+ * fetchDashboardPage which does the joined SELECT under RLS, then renders
+ * records into WorklistLayout inside the AppShell chrome.
  */
 export const metadata = {
   title: "Dashboard",
@@ -123,11 +114,8 @@ export default async function DashboardPage({
     savedFilters,
     dueFollowUps,
     newHighPriority,
-    recentlyViewed,
     statusCounts,
     funnel,
-    winRate,
-    activity,
   ] = await Promise.all([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
@@ -137,20 +125,13 @@ export default async function DashboardPage({
     fetchSavedFilters(),
     getDueFollowUpsForToday(),
     getNewHighPriority(),
-    getRecentlyViewed(),
     getStatusCounts(),
     getDispositionFunnel(),
-    getWinRateBySignal(),
-    getActivityLast30Days(),
   ]);
 
-  // StatusTabs counts. `all` mirrors what the worklist currently shows
-  // (totalCount under the active filter set). Specific statuses come
-  // straight from getStatusCounts. `uncontacted` is the implicit no-row
-  // bucket: funnel.surfaced (distinct businesses in scope) minus the
-  // sum of explicit-status disposition rows. Per the contract's
-  // distinct-business convention, this matches what the rep expects to
-  // see when they click the Uncontacted tab.
+  // StatusTabs counts. `all` mirrors the worklist totalCount under the
+  // active filter set. `uncontacted` = funnel.surfaced minus all explicit
+  // disposition rows (the implicit no-row bucket).
   const explicitDispositionedSum =
     statusCounts.saved +
     statusCounts.working +
@@ -175,31 +156,33 @@ export default async function DashboardPage({
       accessibleStateCodes={accessibleStateCodes}
       savedFilters={savedFilters}
       currentFilters={filters}
+      healthMap={healthMap}
+      viewport="full"
     >
-      <DegradedStateBanner healthMap={healthMap} />
-      {/* DensityProvider wraps the whole disposition area so any client
-          component below can call useDensity(). No consumers in this
-          drop yet — DispositionRow / RecordCard render identically — but
-          the provider's in place for the compact/comfortable toggle the
-          pack expects. */}
+      {/* DensityProvider wraps the worklist so client components below can
+          call useDensity() for the compact/comfortable toggle. */}
       <DensityProvider>
-        <div className="flex flex-col gap-4">
-          <TodayPanel due={dueFollowUps} newLeads={newHighPriority} />
-          {/* Sentinel: DegradedStateBannerClient watches this to activate fixed-sticky mode */}
-          <div id="banner-today-sentinel" className="h-0" aria-hidden="true" />
-          <RecentlyViewed items={recentlyViewed} />
-          <DispositionTabsBar
-            active={filters.dispositionTab}
-            counts={tabCounts}
-          />
+        <WorklistLayout
+          className="h-full"
+          tabs={
+            <DispositionTabsBar
+              active={filters.dispositionTab}
+              counts={tabCounts}
+            />
+          }
+          rail={
+            <WorklistRail
+              today={<TodayPanel due={dueFollowUps} newLeads={newHighPriority} />}
+            />
+          }
+        >
           <Feed
             page={page}
             filters={filters}
             healthMap={healthMap}
             exportStatus={exportStatus}
           />
-          <Insights funnel={funnel} winRate={winRate} activity={activity} />
-        </div>
+        </WorklistLayout>
       </DensityProvider>
     </AppShell>
   );
