@@ -14,6 +14,11 @@ export const metadata = {
   title: "Sign up",
 };
 
+// Set SIGNUP_OPEN=true in Vercel env vars to open signups. Any other value
+// (or absent) keeps the coming-soon gate active. Default-closed is safe for
+// pre-launch.
+const SIGNUP_OPEN = process.env.SIGNUP_OPEN === "true";
+
 /**
  * SPOTLIGHT overlay (visual only): the trial card is enlarged to match the
  * marketing-grade sign-in — centered header, larger title, and generous
@@ -23,6 +28,37 @@ export const metadata = {
  * were added.
  */
 export default async function SignupPage() {
+  if (!SIGNUP_OPEN) {
+    return (
+      <Card className="shadow-[var(--shadow-lg,0_18px_44px_rgba(0,0,0,0.4))]">
+        <CardHeader className="items-center p-8 pb-3 text-center sm:p-10 sm:pb-3">
+          <CardTitle className="text-3xl">Coming soon</CardTitle>
+          <CardDescription className="text-[15px]">
+            Foretab isn&apos;t open for signups yet.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 p-8 pt-2 sm:p-10 sm:pt-2">
+          <p className="text-center text-sm text-muted-foreground">
+            Interested in early access?{" "}
+            <a
+              href="mailto:hi@foretab.com?subject=Foretab%20early%20access"
+              className="text-primary hover:underline"
+            >
+              Email hi@foretab.com
+            </a>
+            .
+          </p>
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Fetch excluded list server-side. The RPC is STABLE on the DB; one call
   // per request is fine. Failure here means we can't verify eligibility —
   // we surface an error rather than rendering a gate with the wrong list.
