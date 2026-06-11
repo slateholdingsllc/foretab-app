@@ -31,8 +31,9 @@ export function RecordDispositionStrip({ record }: { record: DashboardRecord }) 
 
   if (!business?.id) return null;
 
-  const displayName = business.primary_legal_name ?? "Unknown business";
-  const dba = business.primary_dba_name;
+  const displayName =
+    business.primary_legal_name ?? record.business_name ?? "Unknown business";
+  const dba = business.primary_dba_name ?? record.dba_name;
 
   // Facets shown in the panel header — match what the card's badge row
   // already surfaces, so opening the panel doesn't introduce new
