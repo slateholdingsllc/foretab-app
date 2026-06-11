@@ -20,11 +20,14 @@ export function SubscribeButton({
   billingPeriod,
   children,
   className,
+  disabled: disabledProp,
 }: {
   tier: Tier;
   billingPeriod: BillingPeriod;
   children: React.ReactNode;
   className?: string;
+  /** Gate from the pre-charge acknowledgment checkbox. */
+  disabled?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -41,7 +44,7 @@ export function SubscribeButton({
         });
       }}
     >
-      <Button type="submit" disabled={pending} className={className}>
+      <Button type="submit" disabled={pending || disabledProp} className={className}>
         {pending ? "Redirecting..." : children}
       </Button>
       {error ? (

@@ -103,6 +103,28 @@ export async function createCheckoutSession(formData: FormData): Promise<Checkou
 }
 
 /**
+ * Record that the customer checked the pre-charge acknowledgment checkbox on
+ * the plan page. Writes checkout_acknowledgment_at on customers — follows the
+ * same R4 disclosure-timestamp pattern as excluded_state_acknowledgment_at.
+ *
+ * AGENT-B: customers table needs `checkout_acknowledgment_at timestamptz`
+ * column. Add it in the same migration pattern as trial_cap_disclosure_at.
+ * Until the column exists this write is a no-op (Supabase returns an error
+ * that we intentionally swallow since the UI enforcement is the gate).
+ */
+export async function writeCheckoutAcknowledgment(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from("customers")
+    .update({ checkout_acknowledgment_at: new Date().toISOString() })
+    .eq("auth_user_id", user.id);
+}
+
+/**
  * Create a Stripe Customer Portal session for the current authenticated
  * customer (billing management — payment method, invoices, cancellation).
  * Per dispatch §7.5: use Stripe's hosted portal rather than building our

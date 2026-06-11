@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { US_STATES_AND_DC, getStateName } from "@/lib/constants";
 
 /**
- * SignupGate manages the business_state field, the R1 excluded-state
+ * SignupGate manages the business_state field, the counsel §3 excluded-state
  * representation, and the R4 disclosures (trial cap + Terms/arbitration).
  * State lives at this level so both SignupForm and GoogleButton pick up
  * the same values — the gate must hold for all signup paths.
@@ -19,21 +19,22 @@ import { US_STATES_AND_DC, getStateName } from "@/lib/constants";
  *   - Valid state, checkboxes incomplete: auth options disabled.
  *   - Valid state, both checkboxes checked: auth options enabled.
  *
- * R4 additions (counsel-cleared 2026-06-11):
- *   (a) Acknowledgment checkbox copy updated to three-part representation
- *       (formed in / principal place of business in / majority revenues
- *       from), state list interpolated from the same excluded_business_
- *       states() RPC as before.
- *   (b) 25-record trial export cap disclosure inline, same viewport.
- *   (c) Terms acceptance checkbox with adjacent arbitration opt-out
- *       sentence. termsAcceptedAt persists to customers.trial_cap_
- *       disclosure_at and customers.arbitration_optout_disclosure_at
- *       via the handle_email_confirmed trigger.
+ * Checkbox 1 — counsel §3 two-part representation (updated 2026-06-11):
+ *   (a) org NOT formed/organized in, no principal place of business in,
+ *       and does not primarily operate from the excluded states.
+ *       Majority-of-revenues prong removed per counsel's final §3.
+ *   (b) use covenant: no personal-info access/export for those states
+ *       without express written authorization.
+ *   State list dynamic from excluded_business_states() RPC; renders as
+ *   full names (California, not CA) per counsel's copy requirement.
  *
- * OAuth gap: termsAcceptedAt cannot be passed through Supabase's PKCE
- * OAuth redirect. Both R4 disclosure columns will be NULL for Google
- * OAuth signups. UI enforcement is the contractual hook; persistence
- * gap flagged per R4 counsel dispatch rather than worked around.
+ * Checkbox 2 — R4 Terms/arbitration:
+ *   termsAcceptedAt persists to customers.trial_cap_disclosure_at and
+ *   customers.arbitration_optout_disclosure_at via handle_email_confirmed.
+ *
+ * OAuth gap: termsAcceptedAt cannot pass through Supabase's PKCE OAuth
+ * redirect. Both R4 columns will be NULL for Google OAuth signups.
+ * UI enforcement is the contractual hook; gap flagged per R4 dispatch.
  */
 export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
   const [businessState, setBusinessState] = useState<string>("");
@@ -50,8 +51,6 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
   const isExcluded = businessState && excludedStates.includes(businessState);
   const isValid = businessState && !isExcluded;
 
-  const excludedStatesLabel = formatExcludedList(excludedStates);
-  const stateName = businessState ? getStateName(businessState) : "";
   const authEnabled = !!(acknowledgedAt && termsAcceptedAt);
 
   return (
@@ -99,7 +98,13 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
 
       {isValid && (
         <>
-          {/* R4 (a): three-part representation checkbox */}
+          {/* Counsel §3 two-part representation (updated 2026-06-11):
+              (a) org not formed/incorporated in, no principal place of business in,
+                  and does not primarily operate from the excluded states;
+              (b) use covenant — no personal-info access/export for those states
+                  without express written authorization.
+              NOTE: majority-of-revenues prong from R4 draft has been REMOVED
+              per counsel's final §3. State list is dynamic from excluded_business_states() RPC. */}
           <label className="flex items-start gap-3 rounded-lg border border-input bg-card p-3 text-sm cursor-pointer transition-colors hover:bg-surface-2">
             <input
               type="checkbox"
@@ -111,16 +116,15 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
               className="mt-0.5 h-4 w-4 accent-[color:var(--color-accent)]"
             />
             <span className="text-foreground">
-              I represent that my business was{" "}
-              <span className="font-medium">formed in {stateName}</span>, has its{" "}
+              I represent that my organization is{" "}
               <span className="font-medium">
-                principal place of business in {stateName}
-              </span>
-              , and{" "}
-              <span className="font-medium">
-                derives the majority of its revenues from {stateName}
+                not formed or organized in, does not have its principal place of business
+                in, and does not primarily operate from
               </span>{" "}
-              — and that I am not operating in {excludedStatesLabel}.
+              {formatExcludedListFull(excludedStates)} — and I will not use Foretab to
+              access, export, license, or otherwise obtain personal information about
+              individuals located in those states unless Foretab expressly authorizes
+              that use in writing.
             </span>
           </label>
 
@@ -208,18 +212,18 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
 }
 
 /**
- * Format the excluded-states list as a comma-separated phrase ending with
- * "or" (Oxford-comma style).
+ * Format the excluded-states list using full state names (e.g. "California")
+ * — required by counsel §3 representation copy.
  *
  *   [] → "any excluded state"
- *   [CA] → "CA"
- *   [CA, WA] → "CA or WA"
- *   [CA, WA, TX] → "CA, WA, or TX"
- *   [CA, WA, TX, VT, OR] → "CA, WA, TX, VT, or OR"
+ *   [CA] → "California"
+ *   [CA, WA] → "California or Washington"
+ *   [CA, WA, TX, VT, OR] → "California, Washington, Texas, Vermont, or Oregon"
  */
-function formatExcludedList(codes: string[]): string {
-  if (codes.length === 0) return "any excluded state";
-  if (codes.length === 1) return codes[0];
-  if (codes.length === 2) return `${codes[0]} or ${codes[1]}`;
-  return `${codes.slice(0, -1).join(", ")}, or ${codes[codes.length - 1]}`;
+function formatExcludedListFull(codes: string[]): string {
+  const names = codes.map((c) => getStateName(c) ?? c);
+  if (names.length === 0) return "any excluded state";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} or ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, or ${names[names.length - 1]}`;
 }
