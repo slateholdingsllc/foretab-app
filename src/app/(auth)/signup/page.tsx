@@ -45,7 +45,7 @@ export default async function SignupPage() {
         <CardContent className="space-y-4 p-8 pt-2 sm:p-10 sm:pt-2">
           <p className="text-center text-sm text-muted-foreground">
             <a
-              href="https://foretab.com"
+              href="https://foretab.com/#waitlist"
               className="text-primary hover:underline"
             >
               Join the waitlist
