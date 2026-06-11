@@ -49,8 +49,9 @@ export function RecordCard({
   const business = record.business;
   const location = record.location;
 
-  const primaryName = business?.primary_legal_name ?? "Unknown business";
-  const dba = business?.primary_dba_name;
+  const primaryName =
+    business?.primary_legal_name ?? record.business_name ?? "Unknown business";
+  const dba = business?.primary_dba_name ?? record.dba_name;
   const addressParts = [
     location?.street ?? location?.normalized_address,
     location?.city,

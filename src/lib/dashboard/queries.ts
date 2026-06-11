@@ -187,6 +187,8 @@ export async function fetchDashboardPage(args: {
       first_observed_at,
       sort_date,
       state_id,
+      business_name,
+      dba_name,
       businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
@@ -350,6 +352,8 @@ export async function fetchDashboardPage(args: {
     state_code: r.states?.state_code ?? null,
     // Reserved column — null until Agent A adds classified_records.data_source_channel
     data_source_channel: null,
+    business_name: r.business_name ?? null,
+    dba_name: r.dba_name ?? null,
     business: r.businesses,
     location: r.locations,
   }));
@@ -600,6 +604,8 @@ export async function fetchAllRecordsForExport(args: {
       first_observed_at,
       sort_date,
       state_id,
+      business_name,
+      dba_name,
       businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
@@ -712,6 +718,8 @@ export async function fetchAllRecordsForExport(args: {
     state_id: r.state_id,
     state_code: r.states?.state_code ?? null,
     data_source_channel: null,
+    business_name: r.business_name ?? null,
+    dba_name: r.dba_name ?? null,
     business: r.businesses,
     location: r.locations,
   }));

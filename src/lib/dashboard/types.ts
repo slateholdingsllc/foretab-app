@@ -110,6 +110,13 @@ export type ProtectedDispositionStatus =
  * classified_records + businesses + locations + states). All joins are
  * LEFT JOINs because dedup may not have populated business_id /
  * location_id yet for a given record.
+ *
+ * business_name / dba_name are denormalized columns on classified_records
+ * (Agent A payload extraction). They provide display names before dedup
+ * links records to the businesses entity table. Render with this fallback
+ * chain — prefers the authoritative join once business_id is set:
+ *   business?.primary_legal_name ?? business_name
+ *   business?.primary_dba_name   ?? dba_name
  */
 export type DashboardRecord = {
   id: string;
@@ -145,6 +152,10 @@ export type DashboardRecord = {
   state_code: string | null;
   /** Reserved for the channel-discipline audit column. Always null until Agent A adds the column. */
   data_source_channel: DataSourceChannel | null;
+  /** Denormalized from classified_records payload. Preferred source is business?.primary_legal_name. */
+  business_name: string | null;
+  /** Denormalized from classified_records payload. Preferred source is business?.primary_dba_name. */
+  dba_name: string | null;
   business: {
     id: string;
     primary_legal_name: string | null;
