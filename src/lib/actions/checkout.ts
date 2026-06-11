@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { getStripe } from "@/lib/stripe/client";
 import { getStripePriceId } from "@/lib/stripe/prices";
 import type { BillingPeriod, Tier } from "@/lib/pricing";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const VALID_TIERS: Tier[] = ["single_state", "multi_state", "all_access"];
@@ -107,21 +108,51 @@ export async function createCheckoutSession(formData: FormData): Promise<Checkou
  * the plan page. Writes checkout_acknowledgment_at on customers — follows the
  * same R4 disclosure-timestamp pattern as excluded_state_acknowledgment_at.
  *
+ * Root cause of prior silent-failure (2026-06-11): checkout_acknowledgment_at
+ * is a legal-evidence column not in the authenticated role's UPDATE GRANT
+ * (same intentional lock as the other disclosure columns — customers can't
+ * self-modify evidence timestamps). Using the user-scoped client produces a
+ * zero-rows-affected silent no-op. Fix: resolve the user via the user-scoped
+ * client (session check), then write via the admin/service-role client that
+ * bypasses the column-level grant. Same pattern as /auth/callback for the
+ * OAuth disclosure timestamps.
+ *
  * AGENT-B: customers table needs `checkout_acknowledgment_at timestamptz`
- * column. Add it in the same migration pattern as trial_cap_disclosure_at.
- * Until the column exists this write is a no-op (Supabase returns an error
- * that we intentionally swallow since the UI enforcement is the gate).
+ * column if not already present. Same migration pattern as trial_cap_disclosure_at.
  */
 export async function writeCheckoutAcknowledgment(): Promise<void> {
+  // Resolve the user via the session-aware client.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
-  await supabase
+  if (!user) {
+    console.error("[writeCheckoutAcknowledgment] no authenticated user — skipping write");
+    return;
+  }
+
+  // Disclosure columns are excluded from the authenticated-role UPDATE GRANT;
+  // use the service-role admin client to write (server action is server-only,
+  // service key never reaches the browser).
+  const admin = createAdminClient();
+  const { error, count } = await admin
     .from("customers")
-    .update({ checkout_acknowledgment_at: new Date().toISOString() })
+    .update({ checkout_acknowledgment_at: new Date().toISOString() }, { count: "exact" })
     .eq("auth_user_id", user.id);
+
+  if (error) {
+    console.error(
+      "[writeCheckoutAcknowledgment] UPDATE failed:",
+      JSON.stringify({ message: error.message, code: error.code, userId: user.id }),
+    );
+    return;
+  }
+  if (count === 0) {
+    console.error(
+      "[writeCheckoutAcknowledgment] UPDATE affected 0 rows — customer row missing or column grant blocked:",
+      JSON.stringify({ userId: user.id }),
+    );
+  }
 }
 
 /**
