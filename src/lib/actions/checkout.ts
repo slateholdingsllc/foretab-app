@@ -93,7 +93,6 @@ export async function createCheckoutSession(formData: FormData): Promise<Checkou
     },
     success_url: `${origin}/?subscribed=${tier}`,
     cancel_url: `${origin}/trial-expired?cancelled=1`,
-    automatic_tax: { enabled: true },
   });
 
   if (!session.url) {
