@@ -193,7 +193,7 @@ export async function fetchDashboardPage(args: {
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
-      { count: "exact" },
+      { count: "planned" },
     )
     // Gate: only records Agent A has explicitly published. Prevents pre-publish
     // classifications from appearing to customers and is the standing rule for

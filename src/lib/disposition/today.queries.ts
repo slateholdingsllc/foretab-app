@@ -90,7 +90,8 @@ export async function getDueFollowUpsForToday(
     .select("business_id, signal_strength, created_at")
     .in("business_id", businessIds)
     .not("signal_strength", "is", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(limit * 20);
 
   const signalByBusiness = new Map<string, SignalStrength>();
   for (const r of (signalRows ?? []) as Array<{
