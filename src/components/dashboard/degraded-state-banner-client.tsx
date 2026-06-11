@@ -15,8 +15,10 @@ export type BannerEntry = {
  * Client shell for DegradedStateBanner. Handles:
  *   - Normal-flow render (scrolls with page, preserves layout space)
  *   - Scroll-activated fixed render: pins at top after the sentinel div
- *     (id="banner-today-sentinel") placed after TodayPanel exits the viewport
- *   - Session-scoped minimize toggle (expanded by default, collapses to slim bar)
+ *     (id="banner-today-sentinel") placed after DispositionTabsBar exits the viewport
+ *   - Auto-minimizes to slim one-liner on pin; user can expand manually
+ *   - Colors use [[data-theme=light]_&]: overrides (not dark:) so they follow
+ *     the app's class-based theme toggle, not OS preference
  */
 export function DegradedStateBannerClient({
   entries,
@@ -32,24 +34,30 @@ export function DegradedStateBannerClient({
     const sentinel = document.getElementById("banner-today-sentinel");
     if (!sentinel) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setIsFixed(!entry.isIntersecting),
+      ([entry]) => {
+        const nowFixed = !entry.isIntersecting;
+        setIsFixed(nowFixed);
+        if (nowFixed) setMinimized(true);
+      },
       { threshold: 0 },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, []);
 
+  // Dark is the app default; [[data-theme=light]_&]: overrides for light theme.
+  // Using dark: would respond to OS preference, not the app's manual toggle.
   const colorCls = hasRed
-    ? "border-red-300 bg-red-50 dark:border-red-800/60 dark:bg-red-950"
-    : "border-amber-300 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950";
+    ? "border-red-800/60 bg-red-950 [[data-theme=light]_&]:border-red-300 [[data-theme=light]_&]:bg-red-50"
+    : "border-amber-800/60 bg-amber-950 [[data-theme=light]_&]:border-amber-300 [[data-theme=light]_&]:bg-amber-50";
 
   const iconCls = hasRed
-    ? "text-red-700 dark:text-red-400"
-    : "text-amber-700 dark:text-amber-400";
+    ? "text-red-400 [[data-theme=light]_&]:text-red-700"
+    : "text-amber-400 [[data-theme=light]_&]:text-amber-700";
 
   const titleCls = hasRed
-    ? "text-red-700 dark:text-red-400"
-    : "text-amber-800 dark:text-amber-300";
+    ? "text-red-400 [[data-theme=light]_&]:text-red-700"
+    : "text-amber-300 [[data-theme=light]_&]:text-amber-800";
 
   const title = hasRed
     ? "Data refresh is failing for some states"
@@ -137,7 +145,7 @@ export function DegradedStateBannerClient({
                 type="button"
                 onClick={() => setMinimized(false)}
                 className={cn(
-                  "rounded p-0.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10",
+                  "rounded p-0.5 transition-colors hover:bg-white/10 [[data-theme=light]_&]:hover:bg-black/5",
                   iconCls,
                 )}
                 aria-label="Expand data refresh warning"
