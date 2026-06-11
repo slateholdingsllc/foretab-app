@@ -141,25 +141,14 @@ export default async function TrialExpiredPage() {
         </div>
 
         <Card>
-          <CardContent className="space-y-2 p-4 text-sm text-muted-foreground">
-            <p>
-              Want to subscribe right now?{" "}
-              <a
-                href="mailto:hi@foretab.com?subject=Subscribe%20to%20Foretab"
-                className="text-primary hover:underline"
-              >
-                Email hi@foretab.com
-              </a>{" "}
-              and we&apos;ll set you up directly. Self-serve checkout is
-              launching shortly.
-            </p>
+          <CardContent className="p-4 text-sm text-muted-foreground">
             <p>
               Need a different state mix or a custom contract?{" "}
               <Link
                 href="mailto:hi@foretab.com?subject=Custom%20plan"
                 className="text-primary hover:underline"
               >
-                Let&apos;s talk
+                Email hi@foretab.com
               </Link>
               .
             </p>
