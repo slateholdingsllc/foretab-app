@@ -8,59 +8,51 @@ import { Label } from "@/components/ui/label";
 import { US_STATES_AND_DC, getStateName } from "@/lib/constants";
 
 /**
- * SignupGate manages the business_state field, the explicit excluded-state
- * representation, and conditionally renders the auth options. State lives at
- * this level so both SignupForm and GoogleButton pick up the same values —
- * the gate must hold for both paths.
+ * SignupGate manages the business_state field, the R1 excluded-state
+ * representation, and the R4 disclosures (trial cap + Terms/arbitration).
+ * State lives at this level so both SignupForm and GoogleButton pick up
+ * the same values — the gate must hold for all signup paths.
  *
- * Four UI states:
- *   - No state selected: render the dropdown + a hint. Auth options hidden.
- *   - Excluded state selected: replace auth options with an explanatory
- *     message + email-us CTA.
- *   - Valid state selected, acknowledgment not yet given: render the
- *     dropdown + the acknowledgment checkbox; Google + email/password
- *     are rendered but disabled until the checkbox is checked.
- *   - Valid state + acknowledgment given: auth options enabled.
+ * UI states:
+ *   - No state selected: dropdown + hint. Auth options hidden.
+ *   - Excluded state: alert + email CTA. Auth options hidden.
+ *   - Valid state, checkboxes incomplete: auth options disabled.
+ *   - Valid state, both checkboxes checked: auth options enabled.
  *
- * excludedStates is passed in from the server component parent — it's
- * fetched from public.excluded_business_states() at request time, so this
- * UI gate adapts to config changes without a redeploy. Server-side
- * validation re-checks the same RPC on submit; client-side prop is the
- * UX layer, not the enforcement.
+ * R4 additions (counsel-cleared 2026-06-11):
+ *   (a) Acknowledgment checkbox copy updated to three-part representation
+ *       (formed in / principal place of business in / majority revenues
+ *       from), state list interpolated from the same excluded_business_
+ *       states() RPC as before.
+ *   (b) 25-record trial export cap disclosure inline, same viewport.
+ *   (c) Terms acceptance checkbox with adjacent arbitration opt-out
+ *       sentence. termsAcceptedAt persists to customers.trial_cap_
+ *       disclosure_at and customers.arbitration_optout_disclosure_at
+ *       via the handle_email_confirmed trigger.
  *
- * The acknowledgment checkbox label dynamically interpolates the selected
- * state + the current excluded-states list (same source as the gate). The
- * checkbox value carries the moment-of-affirmation timestamp captured at
- * check-time, which the signUp action persists into user_metadata for the
- * Phase 2 Task 11 trigger to propagate into customers.excluded_state_-
- * acknowledgment_at (per regulatory-posture.md § 3.1). Changing the
- * business_state resets the acknowledgment — re-affirmation required so
- * the saved timestamp matches the state actually submitted.
- *
- * SPOTLIGHT overlay (visual only): native <select> restyled to Spotlight
- * Input primitive (h-11, rounded-lg, bg-card, accent focus ring).
+ * OAuth gap: termsAcceptedAt cannot be passed through Supabase's PKCE
+ * OAuth redirect. Both R4 disclosure columns will be NULL for Google
+ * OAuth signups. UI enforcement is the contractual hook; persistence
+ * gap flagged per R4 counsel dispatch rather than worked around.
  */
 export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
   const [businessState, setBusinessState] = useState<string>("");
-  // ISO timestamp captured when the user checks the acknowledgment box;
-  // null when unchecked OR when business_state changes (re-affirmation
-  // required so the timestamp matches the actually-submitted state).
   const [acknowledgedAt, setAcknowledgedAt] = useState<string | null>(null);
+  const [termsAcceptedAt, setTermsAcceptedAt] = useState<string | null>(null);
 
-  // Reset acknowledgment whenever business_state changes — the
-  // representation is "I confirm my business is located in [STATE] AND
-  // I'm not operating in [excluded list]." Changing STATE means the
-  // affirmation is no longer about the same target.
+  // Reset both checkboxes when state changes — representations reference
+  // a specific STATE; changing it invalidates prior affirmations.
   useEffect(() => {
     setAcknowledgedAt(null);
+    setTermsAcceptedAt(null);
   }, [businessState]);
 
   const isExcluded = businessState && excludedStates.includes(businessState);
   const isValid = businessState && !isExcluded;
 
-  // Render the dynamic excluded-states list as "CA, WA, TX, VT, OR, NE, or NC"
-  // with an Oxford-comma "or" before the last entry.
   const excludedStatesLabel = formatExcludedList(excludedStates);
+  const stateName = businessState ? getStateName(businessState) : "";
+  const authEnabled = !!(acknowledgedAt && termsAcceptedAt);
 
   return (
     <div className="space-y-4">
@@ -107,6 +99,7 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
 
       {isValid && (
         <>
+          {/* R4 (a): three-part representation checkbox */}
           <label className="flex items-start gap-3 rounded-lg border border-input bg-card p-3 text-sm cursor-pointer transition-colors hover:bg-surface-2">
             <input
               type="checkbox"
@@ -118,16 +111,81 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
               className="mt-0.5 h-4 w-4 accent-[color:var(--color-accent)]"
             />
             <span className="text-foreground">
-              I confirm my business is located in{" "}
-              <span className="font-medium">{getStateName(businessState)}</span>{" "}
-              and I am not operating in {excludedStatesLabel}.
+              I represent that my business was{" "}
+              <span className="font-medium">formed in {stateName}</span>, has its{" "}
+              <span className="font-medium">
+                principal place of business in {stateName}
+              </span>
+              , and{" "}
+              <span className="font-medium">
+                derives the majority of its revenues from {stateName}
+              </span>{" "}
+              — and that I am not operating in {excludedStatesLabel}.
             </span>
           </label>
+
+          {/* R4 (b): 25-record trial export cap — inline, same viewport as CTA */}
+          <p className="text-xs text-muted-foreground">
+            Trial accounts can export up to 25 records. Subscribe to remove the cap.
+          </p>
+
+          {/* R4 (c): Terms acceptance + arbitration opt-out disclosure */}
+          <div className="space-y-2">
+            <label className="flex items-start gap-3 rounded-lg border border-input bg-card p-3 text-sm cursor-pointer transition-colors hover:bg-surface-2">
+              <input
+                type="checkbox"
+                name="terms_acceptance"
+                checked={termsAcceptedAt !== null}
+                onChange={(e) =>
+                  setTermsAcceptedAt(
+                    e.target.checked ? new Date().toISOString() : null,
+                  )
+                }
+                className="mt-0.5 h-4 w-4 accent-[color:var(--color-accent)]"
+              />
+              <span className="text-foreground">
+                I agree to the{" "}
+                <a
+                  href="https://foretab.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Terms of Service
+                </a>{" "}
+                and{" "}
+                <a
+                  href="https://foretab.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Privacy Policy
+                </a>
+                .
+              </span>
+            </label>
+            <p className="text-xs text-muted-foreground px-1">
+              Section 15 of these Terms contains a binding arbitration agreement
+              and class action waiver. You may opt out within 30 days of signup
+              by emailing{" "}
+              <a
+                href="mailto:hi@foretab.com?subject=Arbitration%20opt-out"
+                className="text-primary hover:underline"
+              >
+                hi@foretab.com
+              </a>
+              .
+            </p>
+          </div>
 
           <GoogleButton
             next="/state-selection"
             businessState={businessState}
-            disabled={!acknowledgedAt}
+            disabled={!authEnabled}
+            termsAcceptedAt={termsAcceptedAt}
           />
           <div className="relative my-2">
             <div className="absolute inset-0 flex items-center">
@@ -137,7 +195,11 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
               <span className="bg-card px-2 text-muted-foreground">or</span>
             </div>
           </div>
-          <SignupForm businessState={businessState} acknowledgedAt={acknowledgedAt} />
+          <SignupForm
+            businessState={businessState}
+            acknowledgedAt={acknowledgedAt}
+            termsAcceptedAt={termsAcceptedAt}
+          />
         </>
       )}
     </div>
@@ -146,14 +208,13 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
 
 /**
  * Format the excluded-states list as a comma-separated phrase ending with
- * "or" (Oxford-comma style). Used inside the explicit representation label
- * the customer affirms at signup.
+ * "or" (Oxford-comma style).
  *
- *   [] → "any excluded state"  (defensive; RPC failure should refuse the page)
+ *   [] → "any excluded state"
  *   [CA] → "CA"
  *   [CA, WA] → "CA or WA"
  *   [CA, WA, TX] → "CA, WA, or TX"
- *   [CA, WA, TX, VT, OR, NE, NC] → "CA, WA, TX, VT, OR, NE, or NC"
+ *   [CA, WA, TX, VT, OR] → "CA, WA, TX, VT, or OR"
  */
 function formatExcludedList(codes: string[]): string {
   if (codes.length === 0) return "any excluded state";

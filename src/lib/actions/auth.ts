@@ -205,15 +205,36 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     };
   }
 
+  // R4 (2026-06-11). Terms acceptance timestamp from the Terms checkbox in
+  // SignupGate. The server-side handle_email_confirmed trigger fans this
+  // single key out to customers.trial_cap_disclosure_at and
+  // customers.arbitration_optout_disclosure_at — both disclosures are shown
+  // in the same form view, so one timestamp covers both. Belt-and-suspenders
+  // server validation mirrors the excluded_state_acknowledgment_at pattern.
+  const termsAcceptedAtRaw = String(
+    formData.get("terms_accepted_at") ?? "",
+  ).trim();
+  if (!termsAcceptedAtRaw) {
+    return {
+      ok: false,
+      error: "Please accept the Terms of Service to continue.",
+    };
+  }
+  const termsAcceptedAtParsed = Date.parse(termsAcceptedAtRaw);
+  if (Number.isNaN(termsAcceptedAtParsed)) {
+    return {
+      ok: false,
+      error: "Terms acceptance timestamp is malformed. Please try again.",
+    };
+  }
+
   const origin = await getRequestOrigin();
   const flow = signupFlowVersion();
   const userMetadata = {
     signup_source: signupSource,
     business_state: businessState,
-    // Stored as ISO 8601 string. The Phase 2 Task 11 trigger casts to
-    // timestamptz at customer-provisioning time (see migration
-    // 20260530000001_phase2_excluded_state_ack_at.sql).
     excluded_state_acknowledgment_at: new Date(acknowledgedAtParsed).toISOString(),
+    terms_accepted_at: new Date(termsAcceptedAtParsed).toISOString(),
   };
   const emailRedirectTo = `${origin}/auth/callback?next=/state-selection`;
 
