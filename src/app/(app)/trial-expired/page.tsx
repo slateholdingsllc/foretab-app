@@ -111,28 +111,30 @@ export default async function TrialExpiredPage() {
                   <CardTitle className="text-lg">{TIER_DISPLAY_NAMES[t.key]}</CardTitle>
                   <CardDescription>{t.description(stateCountSafe)}</CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col gap-3">
-                  <div>
-                    <div className="text-2xl font-bold">{formatCurrency(monthly)}/mo</div>
-                    <div className="text-sm text-muted-foreground">
-                      or {formatCurrency(annual)}/yr (2 months free)
+                <CardContent className="flex flex-1 flex-col">
+                  <div className="mt-auto space-y-3">
+                    <div>
+                      <div className="text-2xl font-bold">{formatCurrency(monthly)}/mo</div>
+                      <div className="text-sm text-muted-foreground">
+                        or {formatCurrency(annual)}/yr (2 months free)
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-auto space-y-2">
-                    <SubscribeButton
-                      tier={t.key}
-                      billingPeriod="monthly"
-                      className="w-full"
-                    >
-                      Subscribe monthly · {formatCurrency(monthly)}/mo
-                    </SubscribeButton>
-                    <SubscribeButton
-                      tier={t.key}
-                      billingPeriod="annual"
-                      className="w-full"
-                    >
-                      Subscribe yearly · {formatCurrency(annual)}/yr
-                    </SubscribeButton>
+                    <div className="space-y-2">
+                      <SubscribeButton
+                        tier={t.key}
+                        billingPeriod="monthly"
+                        className="w-full"
+                      >
+                        Subscribe monthly · {formatCurrency(monthly)}/mo
+                      </SubscribeButton>
+                      <SubscribeButton
+                        tier={t.key}
+                        billingPeriod="annual"
+                        className="w-full"
+                      >
+                        Subscribe yearly · {formatCurrency(annual)}/yr
+                      </SubscribeButton>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
