@@ -111,14 +111,14 @@ export default async function TrialExpiredPage() {
                   <CardTitle className="text-lg">{TIER_DISPLAY_NAMES[t.key]}</CardTitle>
                   <CardDescription>{t.description(stateCountSafe)}</CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 space-y-3">
+                <CardContent className="flex flex-1 flex-col gap-3">
                   <div>
                     <div className="text-2xl font-bold">{formatCurrency(monthly)}/mo</div>
                     <div className="text-sm text-muted-foreground">
                       or {formatCurrency(annual)}/yr (2 months free)
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="mt-auto space-y-2">
                     <SubscribeButton
                       tier={t.key}
                       billingPeriod="monthly"
