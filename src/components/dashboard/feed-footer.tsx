@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import type { ExportStatus } from "@/lib/dashboard/queries";
+import type { StateAttribution } from "@/lib/state-attributions";
 import type { FilterState } from "@/lib/dashboard/types";
 
 /**
@@ -20,44 +21,61 @@ export function FeedFooter({
   totalCount,
   filters,
   exportStatus,
+  attributions = [],
 }: {
   totalCount: number | null;
   filters: FilterState;
   exportStatus: ExportStatus;
+  attributions?: StateAttribution[];
 }) {
   const params = serializeFiltersToSearchParams(filters);
   const exportHref = `/api/export.csv${params.toString() ? `?${params.toString()}` : ""}`;
 
   return (
-    <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-input pt-4 text-sm text-muted-foreground">
-      <div>
-        {totalCount === null
-          ? "Loading count…"
-          : totalCount === 1
-            ? "1 record"
-            : `${totalCount.toLocaleString()} records`}
-        {exportStatus.isTrial && exportStatus.alreadyExported !== undefined ? (
-          <span className="ml-3 text-xs">
-            Trial export: {exportStatus.alreadyExported} / {exportStatus.cap}
-          </span>
-        ) : null}
-      </div>
-      <div className="flex items-center gap-3">
-        <ExportLink
-          href={exportHref}
-          canExport={exportStatus.canExport}
-          isTrial={exportStatus.isTrial}
-          cap={exportStatus.cap}
-          alreadyExported={exportStatus.alreadyExported}
-        />
-        <a
-          href="https://foretab.com/terms"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          Terms
-        </a>
+    <footer className="mt-6 space-y-3 border-t border-input pt-4 text-sm text-muted-foreground">
+      {attributions.map((attr) => (
+        <p key={attr.source} className="text-xs leading-relaxed">
+          {attr.text}{" "}
+          <a
+            href={attr.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline-offset-2 hover:underline"
+          >
+            Source
+          </a>
+        </p>
+      ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          {totalCount === null
+            ? "Loading count…"
+            : totalCount === 1
+              ? "1 record"
+              : `${totalCount.toLocaleString()} records`}
+          {exportStatus.isTrial && exportStatus.alreadyExported !== undefined ? (
+            <span className="ml-3 text-xs">
+              Trial export: {exportStatus.alreadyExported} / {exportStatus.cap}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-3">
+          <ExportLink
+            href={exportHref}
+            canExport={exportStatus.canExport}
+            isTrial={exportStatus.isTrial}
+            cap={exportStatus.cap}
+            alreadyExported={exportStatus.alreadyExported}
+          />
+          <a
+            href="https://foretab.com/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            Terms
+          </a>
+        </div>
       </div>
     </footer>
   );

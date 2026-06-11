@@ -1,5 +1,6 @@
 import { hasActiveFilters } from "@/lib/dashboard/filters";
 import type { ExportStatus } from "@/lib/dashboard/queries";
+import { getAttributionsForStates } from "@/lib/state-attributions";
 import type { FilterState, PageResult, StateHealthMap } from "@/lib/dashboard/types";
 import { CursorPagination } from "./cursor-pagination";
 import { EmptyState } from "./empty-state";
@@ -30,6 +31,10 @@ export function Feed({
   healthMap: StateHealthMap;
   exportStatus: ExportStatus;
 }) {
+  const attributions = getAttributionsForStates(
+    page.records.map((r) => r.state_code),
+  );
+
   if (page.records.length === 0) {
     const reason = hasActiveFilters(filters) ? "no_matches" : "no_records";
     return (
@@ -39,6 +44,7 @@ export function Feed({
           totalCount={page.totalCount}
           filters={filters}
           exportStatus={exportStatus}
+          attributions={attributions}
         />
       </div>
     );
@@ -58,6 +64,7 @@ export function Feed({
         totalCount={page.totalCount}
         filters={filters}
         exportStatus={exportStatus}
+        attributions={attributions}
       />
     </div>
   );

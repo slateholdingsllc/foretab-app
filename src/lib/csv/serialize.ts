@@ -1,5 +1,6 @@
 import type { DashboardRecord } from "@/lib/dashboard/types";
 import { getRecordSourceLabel } from "@/lib/dashboard/state-display";
+import { getAttributionsForStates } from "@/lib/state-attributions";
 
 /**
  * CSV column layout for Task 17 exports. Stable order — changing this is
@@ -108,6 +109,23 @@ export function serializeRecordsToCsv(records: DashboardRecord[]): string {
   for (const r of records) {
     lines.push(recordRow(r).map(csvField).join(","));
   }
+
+  // Append verbatim state-required attribution text for any states whose
+  // data source terms mandate a disclaimer when republishing. Each entry
+  // occupies its own row after a blank separator, with a label in column A
+  // and the full required text in column B.
+  const attributions = getAttributionsForStates(records.map((r) => r.state_code));
+  if (attributions.length > 0) {
+    lines.push(""); // blank separator row
+    for (const attr of attributions) {
+      lines.push(
+        csvField(`Data source attribution (${attr.source})`) +
+          "," +
+          csvField(attr.text),
+      );
+    }
+  }
+
   return `﻿${lines.join("\r\n")}\r\n`;
 }
 
