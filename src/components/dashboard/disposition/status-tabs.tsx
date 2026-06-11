@@ -29,7 +29,7 @@ export function StatusTabs({
   onChange: (next: StatusTabValue) => void;
 }) {
   return (
-    <div className="flex w-fit flex-wrap items-center gap-1 rounded-md border border-border bg-card p-1.5">
+    <div className="flex w-fit flex-wrap items-center gap-1 rounded-md border border-border bg-surface-2 p-1.5">
       <Tab value="all" label="All" active={active === "all"} count={counts.all} onChange={onChange} />
 
       {STATUS_TAB_ORDER.map((s) => (
@@ -84,10 +84,10 @@ function Tab({
       className={cn(
         "inline-flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium tracking-[-0.005em] transition-colors",
         active
-          ? "bg-surface-2 text-foreground"
+          ? "bg-surface-3 text-foreground"
           : muted
             ? "text-foreground-subtle hover:text-foreground-muted"
-            : "text-foreground-2 hover:bg-surface-2 hover:text-foreground",
+            : "text-foreground-2 hover:bg-surface-3 hover:text-foreground",
       )}
     >
       {dotStatus ? <StatusDot status={dotStatus} className="h-[7px] w-[7px]" /> : null}
@@ -96,7 +96,7 @@ function Tab({
         <span
           className={cn(
             "rounded-full px-1.5 py-px font-mono text-[10px] tracking-[0.04em]",
-            active ? "bg-surface-3 text-foreground-2" : "bg-surface-2 text-foreground-muted",
+            active ? "bg-surface-2 text-foreground-2" : "bg-surface-3 text-foreground-muted",
             muted && "bg-transparent",
           )}
         >
