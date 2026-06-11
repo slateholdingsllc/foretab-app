@@ -14,10 +14,11 @@ export const metadata = {
   title: "Sign up",
 };
 
-// Set SIGNUP_OPEN=true in Vercel env vars to open signups. Any other value
-// (or absent) keeps the coming-soon gate active. Default-closed is safe for
-// pre-launch.
-const SIGNUP_OPEN = process.env.SIGNUP_OPEN === "true";
+// Force per-request rendering so SIGNUP_OPEN is evaluated at runtime, not
+// baked at build time. Without this, Next.js statically pre-renders the page
+// and the env var check is frozen into the build output — setting or unsetting
+// SIGNUP_OPEN in Vercel has no effect until a new build, defeating the flag.
+export const dynamic = "force-dynamic";
 
 /**
  * SPOTLIGHT overlay (visual only): the trial card is enlarged to match the
@@ -28,7 +29,11 @@ const SIGNUP_OPEN = process.env.SIGNUP_OPEN === "true";
  * were added.
  */
 export default async function SignupPage() {
-  if (!SIGNUP_OPEN) {
+  // Read at request time (inside the function) — module-level reads can be
+  // inlined by the bundler even with force-dynamic in some Next.js versions.
+  const signupOpen = process.env.SIGNUP_OPEN === "true";
+
+  if (!signupOpen) {
     return (
       <Card className="shadow-[var(--shadow-lg,0_18px_44px_rgba(0,0,0,0.4))]">
         <CardHeader className="items-center p-8 pb-3 text-center sm:p-10 sm:pb-3">
