@@ -121,6 +121,8 @@ export async function createCheckoutSession(formData: FormData): Promise<Checkou
  * column if not already present. Same migration pattern as trial_cap_disclosure_at.
  */
 export async function writeCheckoutAcknowledgment(): Promise<void> {
+  console.log("[writeCheckoutAcknowledgment] action invoked");
+
   // Resolve the user via the session-aware client.
   const supabase = await createClient();
   const {
@@ -130,11 +132,28 @@ export async function writeCheckoutAcknowledgment(): Promise<void> {
     console.error("[writeCheckoutAcknowledgment] no authenticated user — skipping write");
     return;
   }
+  console.log("[writeCheckoutAcknowledgment] user resolved:", user.id);
 
   // Disclosure columns are excluded from the authenticated-role UPDATE GRANT;
   // use the service-role admin client to write (server action is server-only,
   // service key never reaches the browser).
-  const admin = createAdminClient();
+  //
+  // Wrapped in try-catch: createAdminClient() throws synchronously if
+  // SUPABASE_SERVICE_ROLE_KEY is absent (e.g. misconfigured preview env).
+  // Without the catch, the throw escapes the server action as a rejected
+  // Promise that startTransition silently swallows — producing exactly the
+  // same symptom as the prior user-scoped-client bug (no error, no write).
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error(
+      "[writeCheckoutAcknowledgment] createAdminClient threw — SUPABASE_SERVICE_ROLE_KEY likely absent on this environment:",
+      e instanceof Error ? e.message : String(e),
+    );
+    return;
+  }
+
   const { error, count } = await admin
     .from("customers")
     .update({ checkout_acknowledgment_at: new Date().toISOString() }, { count: "exact" })
@@ -149,10 +168,12 @@ export async function writeCheckoutAcknowledgment(): Promise<void> {
   }
   if (count === 0) {
     console.error(
-      "[writeCheckoutAcknowledgment] UPDATE affected 0 rows — customer row missing or column grant blocked:",
+      "[writeCheckoutAcknowledgment] UPDATE affected 0 rows — customer row missing or column not yet added (AGENT-B):",
       JSON.stringify({ userId: user.id }),
     );
+    return;
   }
+  console.log("[writeCheckoutAcknowledgment] timestamp written, rows affected:", count);
 }
 
 /**
