@@ -188,7 +188,7 @@ export async function fetchDashboardPage(args: {
       sort_date,
       state_id,
       business_name,
-      dba_name,
+      dba,
       businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
@@ -323,7 +323,8 @@ export async function fetchDashboardPage(args: {
   // joins (each classified_record has at most one business, one location,
   // one state), they come back as single objects or null.
   const rows = (data ?? []) as unknown as Array<
-    Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel"> & {
+    Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel" | "dba_name"> & {
+      dba: string | null;
       businesses: DashboardRecord["business"];
       locations: DashboardRecord["location"];
       states: { state_code: string | null } | null;
@@ -353,7 +354,7 @@ export async function fetchDashboardPage(args: {
     // Reserved column — null until Agent A adds classified_records.data_source_channel
     data_source_channel: null,
     business_name: r.business_name ?? null,
-    dba_name: r.dba_name ?? null,
+    dba_name: r.dba ?? null,
     business: r.businesses,
     location: r.locations,
   }));
@@ -605,7 +606,7 @@ export async function fetchAllRecordsForExport(args: {
       sort_date,
       state_id,
       business_name,
-      dba_name,
+      dba,
       businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
@@ -690,7 +691,8 @@ export async function fetchAllRecordsForExport(args: {
   }
 
   const rows = (data ?? []) as unknown as Array<
-    Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel"> & {
+    Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel" | "dba_name"> & {
+      dba: string | null;
       businesses: DashboardRecord["business"];
       locations: DashboardRecord["location"];
       states: { state_code: string | null } | null;
@@ -719,7 +721,7 @@ export async function fetchAllRecordsForExport(args: {
     state_code: r.states?.state_code ?? null,
     data_source_channel: null,
     business_name: r.business_name ?? null,
-    dba_name: r.dba_name ?? null,
+    dba_name: r.dba ?? null,
     business: r.businesses,
     location: r.locations,
   }));
