@@ -44,20 +44,12 @@ export default async function SignupPage() {
         </CardHeader>
         <CardContent className="space-y-4 p-8 pt-2 sm:p-10 sm:pt-2">
           <p className="text-center text-sm text-muted-foreground">
-            Interested in early access?{" "}
             <a
-              href="mailto:hi@foretab.com?subject=Foretab%20early%20access"
+              href="https://foretab.com"
               className="text-primary hover:underline"
             >
-              Email hi@foretab.com
+              Join the waitlist
             </a>
-            .
-          </p>
-          <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Sign in
-            </Link>
           </p>
         </CardContent>
       </Card>

@@ -8,24 +8,28 @@ export function GoogleButton({
   next = "/",
   businessState,
   disabled = false,
+  termsAcceptedAt: _termsAcceptedAt,
 }: {
   next?: string;
   businessState?: string;
   /**
-   * External disable signal. On /signup, SignupGate uses this to block the
-   * Google flow until the excluded-state acknowledgment checkbox is
-   * checked — same gating as the email/password submit button. The Google
-   * OAuth flow itself cannot carry the acknowledgment timestamp in this
-   * PR (Supabase signInWithOAuth has no user_metadata pass-through that
-   * survives PKCE callback in a clean way), so Google signups land with
-   * customers.excluded_state_acknowledgment_at = NULL. UI-enforcement is
-   * the contractual hook for the Google path; persistence-of-timestamp
-   * is tracked as a follow-up.
-   *
-   * Defaults to false so /login (returning user, no SignupGate parent)
-   * is unaffected.
+   * External disable signal. On /signup, SignupGate blocks the Google flow
+   * until both the excluded-state acknowledgment AND the Terms acceptance
+   * checkbox are checked — same gating as the email/password submit button.
+   * Defaults to false so /login is unaffected.
    */
   disabled?: boolean;
+  /**
+   * R4 (2026-06-11). Terms acceptance timestamp from SignupGate. Accepted
+   * here so SignupGate can pass it in the same prop shape as SignupForm,
+   * but NOT forwarded through OAuth — Supabase signInWithOAuth has no
+   * user_metadata pass-through that survives the PKCE callback cleanly.
+   * Google OAuth signups will have customers.trial_cap_disclosure_at and
+   * customers.arbitration_optout_disclosure_at = NULL. UI enforcement is
+   * the contractual hook for this path; the persistence gap is flagged per
+   * R4 counsel dispatch rather than worked around.
+   */
+  termsAcceptedAt?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
 

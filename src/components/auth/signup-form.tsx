@@ -10,33 +10,40 @@ import { signUp } from "@/lib/actions/auth";
 export function SignupForm({
   businessState,
   acknowledgedAt,
+  termsAcceptedAt,
 }: {
   businessState?: string;
   /**
-   * ISO timestamp captured at the moment the customer checked the
-   * excluded-state acknowledgment in SignupGate. Null when not yet
-   * checked OR when business_state has changed since (reset). When null,
-   * the submit button is disabled — the customer must affirm before any
-   * /signup POST can fire. The action persists this value into
-   * user_metadata.excluded_state_acknowledgment_at; the Phase 2 Task 11
-   * trigger propagates it to customers.excluded_state_acknowledgment_at.
+   * ISO timestamp from the excluded-state acknowledgment checkbox (R1).
+   * Null until checked or when business_state changes. Submit disabled
+   * when null.
    */
   acknowledgedAt?: string | null;
+  /**
+   * ISO timestamp from the Terms acceptance checkbox (R4). Null until
+   * checked or when business_state changes. Submit disabled when null.
+   * Server persists to customers.trial_cap_disclosure_at and
+   * customers.arbitration_optout_disclosure_at via handle_email_confirmed.
+   */
+  termsAcceptedAt?: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const canSubmit = !pending && acknowledgedAt !== null && acknowledgedAt !== undefined;
+  const canSubmit =
+    !pending && acknowledgedAt !== null && acknowledgedAt !== undefined &&
+    termsAcceptedAt !== null && termsAcceptedAt !== undefined;
 
   return (
     <form
       action={(formData) => {
         setError(null);
-        // SignupGate enforces this is non-empty + non-excluded before
-        // rendering us; pass through for server-side re-validation.
         if (businessState) formData.set("business_state", businessState);
         if (acknowledgedAt) {
           formData.set("excluded_state_acknowledgment_at", acknowledgedAt);
+        }
+        if (termsAcceptedAt) {
+          formData.set("terms_accepted_at", termsAcceptedAt);
         }
         startTransition(async () => {
           const result = await signUp(formData);
