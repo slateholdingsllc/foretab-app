@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SubscribeButton } from "@/components/checkout/subscribe-button";
+import { PlanPageClient, type PlanTierConfig } from "@/components/checkout/plan-page-client";
 import {
   Card,
   CardContent,
@@ -8,35 +8,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  TIER_DISPLAY_NAMES,
-  TIER_PRICING,
-  type Tier,
-  formatCurrency,
-} from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
   title: "Choose a plan",
 };
 
-const TIER_ORDER: Array<{ key: Tier; description: (stateCount: number) => string }> = [
-  {
-    key: "single_state",
-    description: () => "Full access to one US state of your choice.",
-  },
-  {
-    key: "multi_state",
-    description: () => "Any 5 US states.",
-  },
-  {
-    key: "all_access",
-    description: (stateCount) =>
-      stateCount > 0
-        ? `Every state we currently serve (${stateCount}). New states added as we expand.`
-        : "Every state we currently serve. New states added as we expand.",
-  },
-];
+function buildTierOrder(stateCount: number): PlanTierConfig[] {
+  return [
+    { key: "single_state", description: "Full access to one US state of your choice." },
+    { key: "multi_state", description: "Any 5 US states." },
+    {
+      key: "all_access",
+      description:
+        stateCount > 0
+          ? `Every state we currently serve (${stateCount}). New states added as we expand.`
+          : "Every state we currently serve. New states added as we expand.",
+    },
+  ];
+}
 
 export default async function TrialExpiredPage() {
   const supabase = await createClient();
@@ -101,46 +91,7 @@ export default async function TrialExpiredPage() {
           </CardHeader>
         </Card>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {TIER_ORDER.map((t) => {
-            const monthly = TIER_PRICING[t.key].monthly;
-            const annual = TIER_PRICING[t.key].annual;
-            return (
-              <Card key={t.key} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-lg">{TIER_DISPLAY_NAMES[t.key]}</CardTitle>
-                  <CardDescription>{t.description(stateCountSafe)}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col">
-                  <div className="mt-auto space-y-3">
-                    <div>
-                      <div className="text-2xl font-bold">{formatCurrency(monthly)}/mo</div>
-                      <div className="text-sm text-muted-foreground">
-                        or {formatCurrency(annual)}/yr (2 months free)
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <SubscribeButton
-                        tier={t.key}
-                        billingPeriod="monthly"
-                        className="w-full"
-                      >
-                        Subscribe monthly · {formatCurrency(monthly)}/mo
-                      </SubscribeButton>
-                      <SubscribeButton
-                        tier={t.key}
-                        billingPeriod="annual"
-                        className="w-full"
-                      >
-                        Subscribe yearly · {formatCurrency(annual)}/yr
-                      </SubscribeButton>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <PlanPageClient tiers={buildTierOrder(stateCountSafe)} />
 
         <Card>
           <CardContent className="p-4 text-sm text-muted-foreground">
