@@ -8,7 +8,8 @@ export function GoogleButton({
   next = "/",
   businessState,
   disabled = false,
-  termsAcceptedAt: _termsAcceptedAt,
+  acknowledgedAt,
+  termsAcceptedAt,
 }: {
   next?: string;
   businessState?: string;
@@ -20,14 +21,18 @@ export function GoogleButton({
    */
   disabled?: boolean;
   /**
-   * R4 (2026-06-11). Terms acceptance timestamp from SignupGate. Accepted
-   * here so SignupGate can pass it in the same prop shape as SignupForm,
-   * but NOT forwarded through OAuth — Supabase signInWithOAuth has no
-   * user_metadata pass-through that survives the PKCE callback cleanly.
-   * Google OAuth signups will have customers.trial_cap_disclosure_at and
-   * customers.arbitration_optout_disclosure_at = NULL. UI enforcement is
-   * the contractual hook for this path; the persistence gap is flagged per
-   * R4 counsel dispatch rather than worked around.
+   * ISO timestamp from the excluded-state acknowledgment checkbox. Forwarded
+   * through the OAuth round-trip as a `redirectTo` query param and written to
+   * customers.excluded_state_acknowledgment_at by /auth/callback after
+   * exchangeCodeForSession. Absent on the /login flow (returning user).
+   */
+  acknowledgedAt?: string | null;
+  /**
+   * ISO timestamp from the Terms acceptance checkbox. Forwarded through the
+   * OAuth round-trip as a `redirectTo` query param and written to
+   * customers.trial_cap_disclosure_at + customers.arbitration_optout_
+   * disclosure_at by /auth/callback after exchangeCodeForSession.
+   * Absent on the /login flow (returning user).
    */
   termsAcceptedAt?: string | null;
 }) {
@@ -37,10 +42,15 @@ export function GoogleButton({
     <form
       action={(formData) => {
         formData.set("next", next);
-        // businessState is set by SignupGate when this button renders on /signup.
-        // Login flow (no SignupGate parent) doesn't set it — server validation
-        // only enforces business_state for new signups (see signInWithGoogle).
         if (businessState) formData.set("business_state", businessState);
+        // Consent timestamps forwarded to signInWithGoogle, which encodes them
+        // in the OAuth redirectTo URL so they survive the round-trip.
+        if (acknowledgedAt) {
+          formData.set("excluded_state_acknowledgment_at", acknowledgedAt);
+        }
+        if (termsAcceptedAt) {
+          formData.set("terms_accepted_at", termsAcceptedAt);
+        }
         startTransition(async () => {
           await signInWithGoogle(formData);
         });
