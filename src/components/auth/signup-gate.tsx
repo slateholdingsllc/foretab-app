@@ -185,6 +185,7 @@ export function SignupGate({ excludedStates }: { excludedStates: string[] }) {
             next="/state-selection"
             businessState={businessState}
             disabled={!authEnabled}
+            acknowledgedAt={acknowledgedAt}
             termsAcceptedAt={termsAcceptedAt}
           />
           <div className="relative my-2">

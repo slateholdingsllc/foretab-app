@@ -385,12 +385,32 @@ export async function signInWithGoogle(formData: FormData): Promise<AuthActionRe
     }
   }
 
+  // Encode consent timestamps in the redirectTo URL so they survive the
+  // OAuth round-trip. GoTrue appends `code=` to whatever redirectTo we
+  // give it and redirects the browser there after authenticating with
+  // Google — our custom params come back intact. /auth/callback reads
+  // them after exchangeCodeForSession and writes to the customers row.
+  // Only present from /signup (both checkboxes checked); absent on /login.
+  const callbackParams = new URLSearchParams({ next });
+  const acknowledgedAtRaw = String(
+    formData.get("excluded_state_acknowledgment_at") ?? "",
+  ).trim();
+  if (acknowledgedAtRaw && !Number.isNaN(Date.parse(acknowledgedAtRaw))) {
+    callbackParams.set("acknowledged_at", acknowledgedAtRaw);
+  }
+  const termsAcceptedAtRaw = String(
+    formData.get("terms_accepted_at") ?? "",
+  ).trim();
+  if (termsAcceptedAtRaw && !Number.isNaN(Date.parse(termsAcceptedAtRaw))) {
+    callbackParams.set("terms_accepted_at", termsAcceptedAtRaw);
+  }
+
   const supabase = await createClient();
   const origin = await getRequestOrigin();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      redirectTo: `${origin}/auth/callback?${callbackParams.toString()}`,
     },
   });
 
