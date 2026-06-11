@@ -1,8 +1,7 @@
-import { AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { getStateName } from "@/lib/constants";
 import { classifyFreshness, type RefreshFrequency } from "@/lib/dashboard/freshness";
 import type { StateHealthMap } from "@/lib/dashboard/types";
+import { DegradedStateBannerClient } from "./degraded-state-banner-client";
 
 /**
  * Sticky banner pinned above the feed when any accessible state has stale
@@ -59,66 +58,5 @@ export function DegradedStateBanner({ healthMap }: { healthMap: StateHealthMap }
 
   const hasRed = entries.some((e) => e.isRed);
 
-  return (
-    <div
-      className={cn(
-        "sticky top-0 z-10 -mx-6 mb-4 border-b px-6 py-3",
-        hasRed
-          ? "border-red-300 bg-red-50 dark:border-red-800/40 dark:bg-red-950/20"
-          : "border-amber-300 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-950/20",
-      )}
-    >
-      <div className="flex items-start gap-2">
-        <AlertTriangle
-          className={cn(
-            "mt-0.5 h-4 w-4 shrink-0",
-            hasRed
-              ? "text-red-700 dark:text-red-400"
-              : "text-amber-700 dark:text-amber-400",
-          )}
-        />
-        <div>
-          <p
-            className={cn(
-              "text-sm font-semibold",
-              hasRed
-                ? "text-red-700 dark:text-red-400"
-                : "text-amber-800 dark:text-amber-300",
-            )}
-          >
-            {hasRed
-              ? "Data refresh is failing for some states"
-              : "Data refresh is behind schedule for some states"}
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {entries.map((e) => (
-              <li key={e.name} className="text-sm text-foreground">
-                <span className="font-medium">{e.name}</span>
-                {" — "}
-                {e.lastRefreshAt !== null ? (
-                  <>
-                    last refreshed{" "}
-                    <time dateTime={e.lastRefreshAt}>
-                      {new Date(e.lastRefreshAt).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </time>
-                    {e.staleDays !== null && e.staleDays > 0 && (
-                      <span className="text-muted-foreground">
-                        {" "}
-                        ({e.staleDays}d ago)
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">no refresh data</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
+  return <DegradedStateBannerClient entries={entries} hasRed={hasRed} />;
 }

@@ -185,6 +185,8 @@ export default async function DashboardPage({
       <DensityProvider>
         <div className="flex flex-col gap-4">
           <TodayPanel due={dueFollowUps} newLeads={newHighPriority} />
+          {/* Sentinel: DegradedStateBannerClient watches this to activate fixed-sticky mode */}
+          <div id="banner-today-sentinel" className="h-0" aria-hidden="true" />
           <RecentlyViewed items={recentlyViewed} />
           <DispositionTabsBar
             active={filters.dispositionTab}
