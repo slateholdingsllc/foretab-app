@@ -187,13 +187,13 @@ export async function fetchDashboardPage(args: {
       first_observed_at,
       sort_date,
       state_id,
+      business_id,
       business_name,
       dba,
-      businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
-      { count: "planned" },
+      { count: "exact" },
     )
     // Gate: only records Agent A has explicitly published. Prevents pre-publish
     // classifications from appearing to customers and is the standing rule for
@@ -324,8 +324,8 @@ export async function fetchDashboardPage(args: {
   // one state), they come back as single objects or null.
   const rows = (data ?? []) as unknown as Array<
     Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel" | "dba_name"> & {
+      business_id: string | null;
       dba: string | null;
-      businesses: DashboardRecord["business"];
       locations: DashboardRecord["location"];
       states: { state_code: string | null } | null;
     }
@@ -355,7 +355,13 @@ export async function fetchDashboardPage(args: {
     data_source_channel: null,
     business_name: r.business_name ?? null,
     dba_name: r.dba ?? null,
-    business: r.businesses,
+    // businesses JOIN removed: RLS policy does a correlated classified_records
+    // scan per business (O(page_size × table_rows)) — times out at 51 rows.
+    // business.id is preserved from classified_records.business_id for
+    // disposition enrichment; display names fall back to business_name/dba_name.
+    business: r.business_id
+      ? { id: r.business_id, primary_legal_name: null, primary_dba_name: null, primary_state_code: null }
+      : null,
     location: r.locations,
   }));
 
@@ -605,9 +611,9 @@ export async function fetchAllRecordsForExport(args: {
       first_observed_at,
       sort_date,
       state_id,
+      business_id,
       business_name,
       dba,
-      businesses ( id, primary_legal_name, primary_dba_name, primary_state_code ),
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
@@ -692,8 +698,8 @@ export async function fetchAllRecordsForExport(args: {
 
   const rows = (data ?? []) as unknown as Array<
     Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel" | "dba_name"> & {
+      business_id: string | null;
       dba: string | null;
-      businesses: DashboardRecord["business"];
       locations: DashboardRecord["location"];
       states: { state_code: string | null } | null;
     }
@@ -722,7 +728,9 @@ export async function fetchAllRecordsForExport(args: {
     data_source_channel: null,
     business_name: r.business_name ?? null,
     dba_name: r.dba ?? null,
-    business: r.businesses,
+    business: r.business_id
+      ? { id: r.business_id, primary_legal_name: null, primary_dba_name: null, primary_state_code: null }
+      : null,
     location: r.locations,
   }));
 
