@@ -54,21 +54,18 @@ export function getRecordSourceLabel(args: {
 }
 
 /**
- * NV customer-facing scope description. Per foretab-nv-launch-details
- * memory: 10 canonical jurisdiction names; the word "majority" is
- * legally forbidden (denominator isn't externally verifiable).
- *
- * Two approved framings:
- *   - "Nevada's 10 largest alcohol-licensing jurisdictions"
- *   - "Las Vegas, Reno, Henderson, Clark County, and 6 other major
- *     Nevada jurisdictions"
+ * NV customer-facing scope description. Nine distinct licensing
+ * authorities (verified 2026-06-12): Las Vegas, Clark County, Reno,
+ * Washoe County, Sparks, Henderson, North Las Vegas, NV Department of
+ * Taxation, Douglas County. The word "majority" is forbidden (denominator
+ * isn't externally verifiable).
  *
  * Use the long form on first mention (signup-flow context); use the
  * short form anywhere it appears repeatedly (filter labels, etc.).
  */
-export const NV_SCOPE_LONG = "Nevada's 10 largest alcohol-licensing jurisdictions";
+export const NV_SCOPE_LONG = "Nevada's nine licensing authorities";
 export const NV_SCOPE_SHORT =
-  "Las Vegas, Reno, Henderson, Clark County, and 6 other major Nevada jurisdictions";
+  "Las Vegas, Reno, Henderson, Clark County, and five other Nevada jurisdictions";
 
 /**
  * Display label for a state in customer-facing UI (filter pills, card
@@ -77,6 +74,6 @@ export const NV_SCOPE_SHORT =
  */
 export function getStateDisplayLabel(stateCode: string): string {
   const code = stateCode.toUpperCase();
-  if (code === "NV") return "Nevada (10 jurisdictions)";
+  if (code === "NV") return "Nevada (9 jurisdictions)";
   return getStateName(code) ?? code;
 }
