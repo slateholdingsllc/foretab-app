@@ -1,4 +1,4 @@
-import { hasActiveFilters } from "@/lib/dashboard/filters";
+import { hasActiveFilters, serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import type { ExportStatus } from "@/lib/dashboard/queries";
 import { getAttributionsForStates } from "@/lib/state-attributions";
 import type { FilterState, PageResult, StateHealthMap } from "@/lib/dashboard/types";
@@ -36,6 +36,21 @@ export function Feed({
   );
 
   if (page.records.length === 0) {
+    if (filters.search.trim().length > 0) {
+      const clearSearchParams = serializeFiltersToSearchParams({ ...filters, search: "" });
+      const clearHref = clearSearchParams.toString() ? `/?${clearSearchParams}` : "/";
+      return (
+        <div className="space-y-4">
+          <EmptyState reason="search_no_matches" searchTerm={filters.search} clearHref={clearHref} />
+          <FeedFooter
+            totalCount={page.totalCount}
+            filters={filters}
+            exportStatus={exportStatus}
+            attributions={attributions}
+          />
+        </div>
+      );
+    }
     const reason = hasActiveFilters(filters) ? "no_matches" : "no_records";
     return (
       <div className="space-y-4">

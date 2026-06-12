@@ -156,6 +156,7 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
     businessArchetypes,
     daysWindow,
     sort,
+    search: DEFAULT_FILTER_STATE.search,
     showInactive,
     dispositionTab,
     newThisWeek: DEFAULT_FILTER_STATE.newThisWeek,

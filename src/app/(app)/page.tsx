@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
+import { WorklistSearchBar } from "@/components/dashboard/worklist-search-bar";
 import { DensityProvider } from "@/components/dashboard/disposition/density-provider";
 import type { StatusTabValue } from "@/components/dashboard/disposition/status-tabs";
 import { TodayPanel } from "@/components/dashboard/disposition/today-panel";
@@ -165,10 +166,13 @@ export default async function DashboardPage({
         <WorklistLayout
           className="h-full"
           tabs={
-            <DispositionTabsBar
-              active={filters.dispositionTab}
-              counts={tabCounts}
-            />
+            <>
+              <WorklistSearchBar filters={filters} />
+              <DispositionTabsBar
+                active={filters.dispositionTab}
+                counts={tabCounts}
+              />
+            </>
           }
           rail={
             <WorklistRail

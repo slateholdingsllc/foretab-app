@@ -2,17 +2,42 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
- * Two flavors of empty:
+ * Three flavors of empty:
  *   - "no records ever" — customer has access but their state(s) haven't
- *     surfaced any classified records yet (first-day-of-trial,
- *     under-classified-state). Message: data will appear as it lands.
+ *     surfaced any classified records yet. Message: data will appear as it lands.
  *   - "no matches" — filters are too narrow. Message: clear filters CTA.
+ *   - "search_no_matches" — search term returned nothing. Message: clear search CTA.
  */
 export function EmptyState({
   reason,
+  searchTerm,
+  clearHref = "/",
 }: {
-  reason: "no_records" | "no_matches";
+  reason: "no_records" | "no_matches" | "search_no_matches";
+  searchTerm?: string;
+  clearHref?: string;
 }) {
+  if (reason === "search_no_matches") {
+    return (
+      <Card>
+        <CardContent className="space-y-2 p-8 text-center">
+          <h3 className="text-base font-semibold">No businesses match your search</h3>
+          <p className="text-sm text-muted-foreground">
+            No results for{" "}
+            <span className="font-medium text-foreground">
+              &ldquo;{searchTerm}&rdquo;
+            </span>{" "}
+            in your states.{" "}
+            <Link href={clearHref} className="text-primary hover:underline">
+              Clear search
+            </Link>
+            .
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (reason === "no_matches") {
     return (
       <Card>
