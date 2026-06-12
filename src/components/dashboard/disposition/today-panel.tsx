@@ -1,16 +1,23 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { DueFollowUp, NewHighPriorityLead } from "@/lib/disposition/types";
 import { Button } from "@/components/ui/button";
 import { SignalTier } from "./signal-tier";
 
 /**
- * TodayPanel — the pinned strip above the worklist. Two columns:
- *   left  · getDueFollowUps()    — follow_up_at <= now() on the rep's rows
- *   right · getNewHighPriority()  — New/Established classified in last 7d,
- *                                   not yet dispositioned
- * Server component (no interactivity beyond the row CTAs, which link out).
- * Overdue follow-ups pull --destructive; due-today pulls --warning.
+ * TodayPanel — pinned strip in the right rail. Two stacked sections:
+ *   Follow-ups due       follow_up_at <= now() on the rep's own dispositions
+ *   New · high priority  signal_strength=New in last 7d, not yet dispositioned
+ *
+ * Sections stack vertically (single column) so each row has the full ~300px
+ * rail width for [chip] [name + sub] [action]. "Work"/"Open" buttons navigate
+ * to the worklist with that business pre-searched.
+ *
+ * Server component — all interactivity is URL navigation.
  */
+
+const PANEL_ITEM_CAP = 5;
+
 export function TodayPanel({
   due,
   newLeads,
@@ -34,43 +41,63 @@ export function TodayPanel({
         </span>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2">
-        <Column title="Follow-ups due" count={due.length}>
+      {/* Single-column stack — rail is ~300-340px; 2-col would give 170px each,
+          too narrow for chip + truncated name + action button. */}
+      <div className="flex flex-col divide-y divide-border">
+        <Section
+          title="Follow-ups due"
+          count={due.length}
+          viewAllHref={due.length >= PANEL_ITEM_CAP ? "/?tab=working" : undefined}
+        >
           {due.length === 0 ? (
-            <Empty>Nothing due — you're clear.</Empty>
+            <Empty>Nothing due — you&apos;re clear.</Empty>
           ) : (
             due.map((d) => <DueItem key={d.disposition_id} item={d} today={today} />)
           )}
-        </Column>
+        </Section>
 
-        <Column title="New · high priority" count={newLeads.length} bordered>
+        <Section
+          title="New · high priority"
+          count={newLeads.length}
+          viewAllHref={newLeads.length >= PANEL_ITEM_CAP ? "/?signal=New&ntw=1" : undefined}
+        >
           {newLeads.length === 0 ? (
             <Empty>No new high-priority leads.</Empty>
           ) : (
             newLeads.map((l) => <LeadItem key={l.business_id} item={l} />)
           )}
-        </Column>
+        </Section>
       </div>
     </section>
   );
 }
 
-function Column({
+function Section({
   title,
   count,
-  bordered,
+  viewAllHref,
   children,
 }: {
   title: string;
   count: number;
-  bordered?: boolean;
+  viewAllHref?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("px-[18px] py-3.5", bordered && "sm:border-l sm:border-border")}>
+    <div className="px-[18px] py-3.5">
       <div className="mb-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-foreground-muted">
         <span>{title}</span>
-        <span className="text-foreground-2">{count}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-foreground-2">{count}</span>
+          {viewAllHref && (
+            <Link
+              href={viewAllHref}
+              className="normal-case text-primary hover:underline"
+            >
+              View all
+            </Link>
+          )}
+        </div>
       </div>
       <div className="flex flex-col">{children}</div>
     </div>
@@ -83,6 +110,7 @@ function DueItem({ item, today }: { item: DueFollowUp; today: Date }) {
   const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate());
   const dayDiff = Math.round((startOfDue.getTime() - startOfToday.getTime()) / 86_400_000);
   const overdue = dayDiff < 0;
+  const searchHref = `/?q=${encodeURIComponent(item.display_name)}`;
 
   return (
     <Row>
@@ -105,13 +133,20 @@ function DueItem({ item, today }: { item: DueFollowUp; today: Date }) {
           {overdue ? `Overdue ${Math.abs(dayDiff)}d` : "Due today"}
         </div>
       </div>
-      <Button variant="secondary" size="sm">Open</Button>
+      <Button variant="secondary" size="sm" asChild>
+        <Link href={searchHref}>Open</Link>
+      </Button>
     </Row>
   );
 }
 
 function LeadItem({ item }: { item: NewHighPriorityLead }) {
-  const days = Math.max(0, Math.round((Date.now() - new Date(item.surfaced_at).getTime()) / 86_400_000));
+  const days = Math.max(
+    0,
+    Math.round((Date.now() - new Date(item.surfaced_at).getTime()) / 86_400_000),
+  );
+  const searchHref = `/?q=${encodeURIComponent(item.display_name)}`;
+
   return (
     <Row>
       <SignalTier signal={item.signal_strength} className="shrink-0 px-1.5 py-px text-[9px]" />
@@ -120,11 +155,13 @@ function LeadItem({ item }: { item: NewHighPriorityLead }) {
           {item.display_name}
         </div>
         <div className="mt-0.5 font-mono text-[10px] tracking-[0.03em] text-foreground-muted">
-          surfaced {days === 0 ? "today" : `${days}d ago`}
-          {item.state_code ? ` · ${item.state_code}` : ""}
+          {item.state_code ? `${item.state_code} · ` : ""}
+          {days === 0 ? "today" : `${days}d ago`}
         </div>
       </div>
-      <Button variant="default" size="sm">Work</Button>
+      <Button variant="default" size="sm" asChild>
+        <Link href={searchHref}>Work</Link>
+      </Button>
     </Row>
   );
 }
