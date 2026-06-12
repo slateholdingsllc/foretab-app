@@ -160,6 +160,8 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
     showInactive,
     dispositionTab,
     newThisWeek: DEFAULT_FILTER_STATE.newThisWeek,
+    city: DEFAULT_FILTER_STATE.city,
+    zip: DEFAULT_FILTER_STATE.zip,
   };
 }
 

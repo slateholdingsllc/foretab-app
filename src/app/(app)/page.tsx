@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
 import { MobileWorklistControls } from "@/components/dashboard/mobile-worklist-controls";
+import { SectionDegraded } from "@/components/dashboard/section-degraded";
 import { WorklistSearchBar } from "@/components/dashboard/worklist-search-bar";
 import { DensityProvider } from "@/components/dashboard/disposition/density-provider";
 import type { StatusTabValue } from "@/components/dashboard/disposition/status-tabs";
@@ -22,6 +23,8 @@ import {
   fetchDataSourceHealthMap,
   fetchExportStatus,
   fetchSavedFilters,
+  type ExportStatus,
+  PAID_EXPORT_MAX_ROWS,
 } from "@/lib/dashboard/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -101,24 +104,25 @@ export default async function DashboardPage({
     redirect("/trial-expired");
   }
 
-  // Past the guards — fetch data in parallel.
+  // Past the guards — fetch data in parallel. allSettled so one slow query
+  // can't crash the whole page — sections render degraded states independently.
   const resolvedSearchParams = await searchParams;
   const filters = parseFiltersFromSearchParams(resolvedSearchParams);
   const cursor =
     typeof resolvedSearchParams.cursor === "string" ? resolvedSearchParams.cursor : null;
 
   const [
-    context,
-    accessibleStateCodes,
-    page,
-    healthMap,
-    exportStatus,
-    savedFilters,
-    dueFollowUps,
-    newHighPriority,
-    statusCounts,
-    funnel,
-  ] = await Promise.all([
+    contextResult,
+    accessibleStateCodesResult,
+    pageResult,
+    healthMapResult,
+    exportStatusResult,
+    savedFiltersResult,
+    dueFollowUpsResult,
+    newHighPriorityResult,
+    statusCountsResult,
+    funnelResult,
+  ] = await Promise.allSettled([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
     fetchDashboardPage({ filters, cursor }),
@@ -131,23 +135,64 @@ export default async function DashboardPage({
     getDispositionFunnel(),
   ]);
 
-  // StatusTabs counts. `all` mirrors the worklist totalCount under the
-  // active filter set. `uncontacted` = funnel.surfaced minus all explicit
-  // disposition rows (the implicit no-row bucket).
-  const explicitDispositionedSum =
-    statusCounts.saved +
-    statusCounts.working +
-    statusCounts.won +
-    statusCounts.lost +
-    statusCounts.skip;
+  const DEFAULT_EXPORT_STATUS: ExportStatus = {
+    isTrial: false,
+    cap: PAID_EXPORT_MAX_ROWS,
+    canExport: false,
+  };
+
+  const context =
+    contextResult.status === "fulfilled"
+      ? contextResult.value
+      : { customerId: null, email: null, status: null, currentTier: null, trialExpiresAt: null };
+  const accessibleStateCodes =
+    accessibleStateCodesResult.status === "fulfilled"
+      ? accessibleStateCodesResult.value
+      : [];
+  const page =
+    pageResult.status === "fulfilled" ? pageResult.value : null;
+  const healthMap =
+    healthMapResult.status === "fulfilled" ? healthMapResult.value : new Map();
+  const exportStatus =
+    exportStatusResult.status === "fulfilled"
+      ? exportStatusResult.value
+      : DEFAULT_EXPORT_STATUS;
+  const savedFilters =
+    savedFiltersResult.status === "fulfilled" ? savedFiltersResult.value : [];
+  const dueFollowUps =
+    dueFollowUpsResult.status === "fulfilled" ? dueFollowUpsResult.value : null;
+  const newHighPriority =
+    newHighPriorityResult.status === "fulfilled"
+      ? newHighPriorityResult.value
+      : null;
+  const statusCounts =
+    statusCountsResult.status === "fulfilled" ? statusCountsResult.value : null;
+  const funnel =
+    funnelResult.status === "fulfilled" ? funnelResult.value : null;
+
+  // StatusTabs counts — degrade gracefully when statusCounts / funnel fail.
+  const explicitDispositionedSum = statusCounts
+    ? statusCounts.saved +
+      statusCounts.working +
+      statusCounts.won +
+      statusCounts.lost +
+      statusCounts.skip
+    : 0;
   const tabCounts: Partial<Record<StatusTabValue, number>> = {
-    all: page.totalCount ?? undefined,
-    uncontacted: Math.max(0, funnel.surfaced - explicitDispositionedSum),
-    saved: statusCounts.saved,
-    working: statusCounts.working,
-    won: statusCounts.won,
-    lost: statusCounts.lost,
-    skip: statusCounts.skip,
+    all: page?.totalCount ?? undefined,
+    ...(statusCounts
+      ? {
+          uncontacted: Math.max(
+            0,
+            (funnel?.surfaced ?? 0) - explicitDispositionedSum,
+          ),
+          saved: statusCounts.saved,
+          working: statusCounts.working,
+          won: statusCounts.won,
+          lost: statusCounts.lost,
+          skip: statusCounts.skip,
+        }
+      : {}),
   };
 
   return (
@@ -172,7 +217,7 @@ export default async function DashboardPage({
                 filters={filters}
                 accessibleStateCodes={accessibleStateCodes}
                 savedFilters={savedFilters}
-                resultCount={page.totalCount ?? undefined}
+                resultCount={page?.totalCount ?? undefined}
               />
               {/* Desktop search — hidden on mobile; MobileWorklistControls renders its own. */}
               <div className="hidden lg:block">
@@ -186,16 +231,26 @@ export default async function DashboardPage({
           }
           rail={
             <WorklistRail
-              today={<TodayPanel due={dueFollowUps} newLeads={newHighPriority} />}
+              today={
+                dueFollowUps !== null && newHighPriority !== null ? (
+                  <TodayPanel due={dueFollowUps} newLeads={newHighPriority} />
+                ) : (
+                  <SectionDegraded message="Today's panel is temporarily unavailable" />
+                )
+              }
             />
           }
         >
-          <Feed
-            page={page}
-            filters={filters}
-            healthMap={healthMap}
-            exportStatus={exportStatus}
-          />
+          {page !== null ? (
+            <Feed
+              page={page}
+              filters={filters}
+              healthMap={healthMap}
+              exportStatus={exportStatus}
+            />
+          ) : (
+            <SectionDegraded message="Records are taking longer than usual" />
+          )}
         </WorklistLayout>
       </DensityProvider>
     </AppShell>

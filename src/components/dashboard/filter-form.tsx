@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -9,14 +10,15 @@ import {
   parseFiltersFromSearchParams,
   serializeFiltersToSearchParams,
 } from "@/lib/dashboard/filters";
+import { SORT_OPTIONS } from "@/lib/dashboard/filter-options";
 import { getStateDisplayLabel } from "@/lib/dashboard/state-display";
 import type {
   BusinessArchetype,
   FilterState,
   LicenseRecordType,
   SignalStrength,
-  SortOrder,
 } from "@/lib/dashboard/types";
+import { CityTypeahead } from "./city-typeahead";
 
 /**
  * Filter form. URL search params are the source of truth — form
@@ -73,18 +75,6 @@ const DAYS_OPTIONS = [
   { value: "365", label: "Last year" },
 ];
 
-const SORT_OPTIONS: Array<{ value: SortOrder; label: string }> = [
-  { value: "newest_first", label: "Newest first" },
-  { value: "oldest_first", label: "Oldest first" },
-  { value: "name_asc", label: "Business name A→Z" },
-  { value: "name_desc", label: "Business name Z→A" },
-  { value: "issued_desc", label: "Recently issued" },
-  { value: "issued_asc", label: "Oldest issued" },
-  { value: "expiring_soonest", label: "Expiring soonest" },
-  { value: "license_type_asc", label: "License type A→Z" },
-  { value: "license_type_desc", label: "License type Z→A" },
-];
-
 function multiSelectClassName() {
   return "flex min-h-24 w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 }
@@ -105,6 +95,19 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
   });
   const current: FilterState = parseFiltersFromSearchParams(sp);
 
+  // City and zip need local state because CityTypeahead is interactive.
+  // Sync from URL when the URL changes (another filter applied).
+  const [cityDraft, setCityDraft] = useState(current.city);
+  const [zipDraft, setZipDraft] = useState(current.zip);
+
+  useEffect(() => {
+    setCityDraft(current.city);
+  }, [current.city]);
+
+  useEffect(() => {
+    setZipDraft(current.zip);
+  }, [current.zip]);
+
   function applyFromForm(formData: FormData) {
     const states = (formData.getAll("states") as string[]).filter(Boolean);
     const types = (formData.getAll("types") as string[]).filter(Boolean);
@@ -113,6 +116,9 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
     const days = String(formData.get("days") ?? "");
     const sort = String(formData.get("sort") ?? "newest_first");
     const showInactive = formData.get("inactive") === "1";
+    // city/zip read from hidden inputs (kept in sync with local state)
+    const city = String(formData.get("city") ?? "").trim();
+    const zip = String(formData.get("zip") ?? "").trim();
 
     const next: FilterState = {
       states,
@@ -130,6 +136,8 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       dispositionTab: current.dispositionTab,
       // newThisWeek is set via its own chip, not the sidebar form. Preserve.
       newThisWeek: current.newThisWeek,
+      city,
+      zip,
     };
 
     const params = serializeFiltersToSearchParams(next);
@@ -247,6 +255,33 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Hidden inputs carry city/zip (controlled by local state) into FormData */}
+      <input type="hidden" name="city" value={cityDraft} />
+      <input type="hidden" name="zip" value={zipDraft} />
+
+      <div className="space-y-1.5">
+        <Label>City</Label>
+        <CityTypeahead
+          value={cityDraft}
+          onChange={setCityDraft}
+          selectedStates={current.states}
+          disabled={pending}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="zip-input">ZIP code</Label>
+        <input
+          id="zip-input"
+          type="text"
+          value={zipDraft}
+          onChange={(e) => setZipDraft(e.target.value)}
+          placeholder="e.g. 80203"
+          disabled={pending}
+          className={singleSelectClassName()}
+        />
       </div>
 
       <div className="space-y-1.5">

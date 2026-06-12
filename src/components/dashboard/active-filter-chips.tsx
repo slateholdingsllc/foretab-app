@@ -100,6 +100,20 @@ export function ActiveFilterChips({ filters }: { filters: FilterState }) {
       remove: () => navigate({ ...filters, showInactive: false }),
     });
   }
+  if (filters.city.length > 0) {
+    chips.push({
+      key: "city",
+      label: `City: ${filters.city}`,
+      remove: () => navigate({ ...filters, city: "" }),
+    });
+  }
+  if (filters.zip.length > 0) {
+    chips.push({
+      key: "zip",
+      label: `ZIP: ${filters.zip}`,
+      remove: () => navigate({ ...filters, zip: "" }),
+    });
+  }
 
   if (chips.length === 0) return null;
 

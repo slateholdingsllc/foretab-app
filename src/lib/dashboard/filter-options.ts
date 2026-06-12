@@ -70,6 +70,9 @@ export const SORT_OPTIONS: Array<{ value: SortOrder; label: string }> = [
   { value: "expiring_soonest", label: "Expiring soonest" },
   { value: "license_type_asc", label: "License type A→Z" },
   { value: "license_type_desc", label: "License type Z→A" },
+  { value: "city_asc", label: "City A→Z" },
+  { value: "city_desc", label: "City Z→A" },
+  { value: "zip_asc", label: "ZIP code" },
 ];
 
 /** Lookup helpers — label for a stored value, used by the chip row. */
