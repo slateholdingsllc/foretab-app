@@ -172,10 +172,16 @@ export async function getNewHighPriority(
   // Pull the qualifying classified_records in the last 7 days. Overfetch
   // a bit so we can dedup to distinct businesses + still return `limit`
   // after filtering against the customer's existing dispositions.
+  //
+  // businesses embed removed — its RLS policy runs a correlated subquery on
+  // classified_records per row and times out for accounts with many state IDs
+  // (same root cause as PR #61 for the feed). business_name + dba are
+  // denormalized columns on classified_records (migration 20260611000001).
+  // states(state_code) is a 9-row join with qual:true RLS — no cost.
   const { data: candidateRows } = await supabase
     .from("classified_records")
     .select(
-      "business_id, state_id, signal_strength, created_at, businesses(primary_dba_name, primary_legal_name, primary_state_code)",
+      "business_id, state_id, signal_strength, created_at, business_name, dba, states(state_code)",
     )
     .in("state_id", accessibleStateIds)
     .in("signal_strength", highPrioritySignals as unknown as string[])
@@ -192,18 +198,9 @@ export async function getNewHighPriority(
     state_id: string;
     signal_strength: string;
     created_at: string;
-    businesses:
-      | Array<{
-          primary_dba_name: string | null;
-          primary_legal_name: string | null;
-          primary_state_code: string | null;
-        }>
-      | {
-          primary_dba_name: string | null;
-          primary_legal_name: string | null;
-          primary_state_code: string | null;
-        }
-      | null;
+    business_name: string | null;
+    dba: string | null;
+    states: { state_code: string } | Array<{ state_code: string }> | null;
   };
   const distinctByBusiness = new Map<string, Candidate>();
   for (const raw of candidateRows as unknown as Candidate[]) {
@@ -236,11 +233,11 @@ export async function getNewHighPriority(
 
   // Resolve display fields + project to NewHighPriorityLead shape.
   return fresh.slice(0, limit).map((c) => {
-    const b = Array.isArray(c.businesses) ? c.businesses[0] : c.businesses;
+    const stateRow = Array.isArray(c.states) ? c.states[0] : c.states;
     return {
       business_id: c.business_id,
-      display_name: resolveDisplayName(b),
-      state_code: b?.primary_state_code ?? null,
+      display_name: c.dba ?? c.business_name ?? "—",
+      state_code: stateRow?.state_code ?? null,
       signal_strength: c.signal_strength as SignalStrength,
       surfaced_at: c.created_at,
     };
