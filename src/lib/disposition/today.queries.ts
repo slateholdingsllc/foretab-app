@@ -163,10 +163,11 @@ export async function getNewHighPriority(
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const sinceIso = sevenDaysAgo.toISOString();
 
-  const highPrioritySignals = [
-    ...HOT_LIKE_SIGNALS,
-    ...WARM_LIKE_SIGNALS,
-  ];
+  // Panel header is "New · high priority" — filter to New signal only.
+  // WARM_LIKE_SIGNALS (Established) was included during v1→v2 vocabulary
+  // migration; now that v2 is confirmed, Established records belong to a
+  // separate "warm pipeline" surface, not the high-priority inbox.
+  const highPrioritySignals = HOT_LIKE_SIGNALS;
 
   // Pull the qualifying classified_records in the last 7 days. Overfetch
   // a bit so we can dedup to distinct businesses + still return `limit`
