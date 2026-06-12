@@ -185,7 +185,10 @@ export type SortOrder =
   | "issued_asc"
   | "expiring_soonest"
   | "license_type_asc"
-  | "license_type_desc";
+  | "license_type_desc"
+  | "city_asc"
+  | "city_desc"
+  | "zip_asc";
 
 /**
  * StatusTabs filter axis. Mirrors the StatusTabValue type from
@@ -223,6 +226,10 @@ export type FilterState = {
    * OR (issued_date IS NULL AND first_observed_at >= threshold).
    */
   newThisWeek: boolean;
+  /** City name filter (exact match on classified_records.location_city). Empty = no filter. */
+  city: string;
+  /** ZIP prefix filter (prefix match on classified_records.location_zip). Empty = no filter. */
+  zip: string;
 };
 
 export const DEFAULT_FILTER_STATE: FilterState = {
@@ -236,6 +243,8 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   showInactive: false,
   dispositionTab: "all",
   newThisWeek: false,
+  city: "",
+  zip: "",
 };
 
 export const PAGE_SIZE = 50;

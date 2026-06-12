@@ -254,6 +254,13 @@ export async function fetchDashboardPage(args: {
     query = query.or(`business_name.ilike."%${esc}%",dba.ilike."%${esc}%"`);
   }
 
+  if (filters.city.trim().length > 0) {
+    query = query.eq("location_city", filters.city.trim());
+  }
+  if (filters.zip.trim().length > 0) {
+    query = query.ilike("location_zip", `${filters.zip.trim()}%`);
+  }
+
   const customerStatusOr = buildCustomerStatusOrClause(
     filters.showInactive,
     protectedBusinessIds,
@@ -378,6 +385,38 @@ export async function fetchDashboardPage(args: {
       }
       break;
     }
+    case "city_asc":
+    case "city_desc": {
+      const asc = filters.sort === "city_asc";
+      query = query
+        .order("location_city", { ascending: asc, nullsFirst: false })
+        .order("id", { ascending: asc });
+      if (cursor) {
+        const v = pgVal(cursor.s);
+        if (cursor.n) {
+          query = query.or(`and(location_city.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
+        } else if (asc) {
+          query = query.or(`location_city.gt.${v},and(location_city.eq.${v},id.gt.${cursor.i}),location_city.is.null`);
+        } else {
+          query = query.or(`location_city.lt.${v},and(location_city.eq.${v},id.lt.${cursor.i}),location_city.is.null`);
+        }
+      }
+      break;
+    }
+    case "zip_asc": {
+      query = query
+        .order("location_zip", { ascending: true, nullsFirst: false })
+        .order("id", { ascending: true });
+      if (cursor) {
+        const v = pgVal(cursor.s);
+        if (cursor.n) {
+          query = query.or(`and(location_zip.is.null,id.gt.${cursor.i})`);
+        } else {
+          query = query.or(`location_zip.gt.${v},and(location_zip.eq.${v},id.gt.${cursor.i}),location_zip.is.null`);
+        }
+      }
+      break;
+    }
   }
 
   // Fetch PAGE_SIZE + 1 so we can detect "is there a next page" without
@@ -472,6 +511,11 @@ export async function fetchDashboardPage(args: {
       case "license_type_asc":
       case "license_type_desc":
         return record.license_type_raw;
+      case "city_asc":
+      case "city_desc":
+        return record.location?.city ?? null;
+      case "zip_asc":
+        return record.location?.zip ?? null;
       default:
         return record.sort_date ?? record.classified_at;
     }
@@ -759,6 +803,13 @@ export async function fetchAllRecordsForExport(args: {
     query = query.or(`business_name.ilike."%${esc}%",dba.ilike."%${esc}%"`);
   }
 
+  if (filters.city.trim().length > 0) {
+    query = query.eq("location_city", filters.city.trim());
+  }
+  if (filters.zip.trim().length > 0) {
+    query = query.ilike("location_zip", `${filters.zip.trim()}%`);
+  }
+
   const customerStatusOr = buildCustomerStatusOrClause(
     filters.showInactive,
     protectedBusinessIds,
@@ -817,6 +868,15 @@ export async function fetchAllRecordsForExport(args: {
       query = query.order("license_type_raw", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
       break;
     }
+    case "city_asc":
+    case "city_desc": {
+      const asc = filters.sort === "city_asc";
+      query = query.order("location_city", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
+      break;
+    }
+    case "zip_asc":
+      query = query.order("location_zip", { ascending: true, nullsFirst: false }).order("id", { ascending: true });
+      break;
   }
   query = query.limit(args.limit);
 

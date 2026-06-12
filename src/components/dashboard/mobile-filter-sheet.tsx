@@ -24,6 +24,7 @@ import {
   SORT_OPTIONS,
 } from "@/lib/dashboard/filter-options";
 import { getStateDisplayLabel } from "@/lib/dashboard/state-display";
+import { CityTypeahead } from "./city-typeahead";
 
 /**
  * MobileFilterSheet — the full sidebar FilterForm + SavedFiltersMenu as a
@@ -71,6 +72,8 @@ export function MobileFilterSheet({
   );
   const [sort, setSort] = useState<string>(filters.sort);
   const [showInactive, setShowInactive] = useState<boolean>(filters.showInactive);
+  const [city, setCity] = useState<string>(filters.city);
+  const [zip, setZip] = useState<string>(filters.zip);
 
   // Re-seed when the sheet (re)opens or the URL changes underneath it.
   useEffect(() => {
@@ -82,6 +85,8 @@ export function MobileFilterSheet({
     setDays(filters.daysWindow !== null ? String(filters.daysWindow) : "");
     setSort(filters.sort);
     setShowInactive(filters.showInactive);
+    setCity(filters.city);
+    setZip(filters.zip);
     setPanel("filters");
   }, [open, filters]);
 
@@ -112,6 +117,8 @@ export function MobileFilterSheet({
       daysWindow: days ? Number.parseInt(days, 10) : null,
       sort: (sort as FilterState["sort"]) ?? "newest_first",
       showInactive,
+      city,
+      zip,
     };
     const params = serializeFiltersToSearchParams(next);
     const qs = params.toString();
@@ -129,6 +136,8 @@ export function MobileFilterSheet({
     setDays("");
     setSort("newest_first");
     setShowInactive(false);
+    setCity("");
+    setZip("");
   }
 
   const draftActive =
@@ -137,7 +146,9 @@ export function MobileFilterSheet({
     types.length > 0 ||
     archetypes.length > 0 ||
     days !== "" ||
-    showInactive;
+    showInactive ||
+    city !== "" ||
+    zip !== "";
 
   if (!open) return null;
 
@@ -200,6 +211,31 @@ export function MobileFilterSheet({
                   </Chip>
                 ))}
               </ChipGroup>
+
+              <div className="border-b border-border py-3.5">
+                <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                  City
+                </div>
+                <CityTypeahead
+                  value={city}
+                  onChange={setCity}
+                  selectedStates={states}
+                  inputClassName="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[color:var(--color-accent-ring)] pr-7"
+                />
+              </div>
+
+              <div className="border-b border-border py-3.5">
+                <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                  ZIP code
+                </div>
+                <input
+                  type="text"
+                  value={zip}
+                  onChange={(e) => setZip(e.target.value)}
+                  placeholder="e.g. 80203"
+                  className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[color:var(--color-accent-ring)]"
+                />
+              </div>
 
               <SelectGroup
                 label="Date window"

@@ -82,6 +82,9 @@ const VALID_SORTS: SortOrder[] = [
   "expiring_soonest",
   "license_type_asc",
   "license_type_desc",
+  "city_asc",
+  "city_desc",
+  "zip_asc",
 ];
 
 const VALID_DAYS_WINDOWS = new Set([7, 30, 90, 180, 365]);
@@ -137,6 +140,8 @@ export function parseFiltersFromSearchParams(
     showInactive: get("inactive") === "1",
     dispositionTab: parseDispositionTab(get("tab")),
     newThisWeek: get("ntw") === "1",
+    city: get("city")?.trim() ?? "",
+    zip: get("zip")?.trim() ?? "",
   };
 }
 
@@ -160,6 +165,8 @@ export function serializeFiltersToSearchParams(filters: FilterState): URLSearchP
     params.set("tab", filters.dispositionTab);
   }
   if (filters.newThisWeek) params.set("ntw", "1");
+  if (filters.city.length > 0) params.set("city", filters.city);
+  if (filters.zip.length > 0) params.set("zip", filters.zip);
   return params;
 }
 
@@ -185,6 +192,8 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.sort !== DEFAULT_FILTER_STATE.sort ||
     filters.search.length > 0 ||
     filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab ||
-    filters.newThisWeek
+    filters.newThisWeek ||
+    filters.city.length > 0 ||
+    filters.zip.length > 0
   );
 }
