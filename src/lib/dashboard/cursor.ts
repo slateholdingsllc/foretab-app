@@ -31,7 +31,11 @@ export function decodeCursor(encoded: string | null | undefined): CursorPayload 
       return null;
     }
     const p = parsed as Record<string, unknown>;
-    return { s: p.s as string, i: p.i as string };
+    return {
+      s: p.s as string,
+      i: p.i as string,
+      ...(p.n === true ? { n: true as const } : {}),
+    };
   } catch {
     return null;
   }

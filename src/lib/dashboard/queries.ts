@@ -190,6 +190,8 @@ export async function fetchDashboardPage(args: {
       business_id,
       business_name,
       dba,
+      expiration_date,
+      license_type_raw,
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
@@ -246,6 +248,12 @@ export async function fetchDashboardPage(args: {
     );
   }
 
+  if (filters.search.trim().length > 0) {
+    // Double-quote the value so commas/parens inside the term don't break PostgREST .or() syntax.
+    const esc = filters.search.trim().replace(/"/g, '""');
+    query = query.or(`business_name.ilike."%${esc}%",dba.ilike."%${esc}%"`);
+  }
+
   const customerStatusOr = buildCustomerStatusOrClause(
     filters.showInactive,
     protectedBusinessIds,
@@ -287,25 +295,88 @@ export async function fetchDashboardPage(args: {
   }
 
   // -- Sort + cursor --
+  // Double-quote text sort values so special chars don't break PostgREST .or() syntax.
+  const pgVal = (v: string) => `"${v.replace(/"/g, '""')}"`;
 
-  const ascending = filters.sort === "oldest_first";
-  // sort_date is a generated column: COALESCE(issued_date::timestamptz, first_observed_at).
-  // Always non-null (first_observed_at is backfilled on every row), so no NULLS LAST needed,
-  // but kept for safety against any future rows where first_observed_at is absent.
-  query = query
-    .order("sort_date", { ascending, nullsFirst: false })
-    .order("id", { ascending });
-
-  if (cursor) {
-    // Composite cursor on (sort_date, id). cursor.s = sort_date ISO timestamp.
-    if (ascending) {
-      query = query.or(
-        `sort_date.gt.${cursor.s},and(sort_date.eq.${cursor.s},id.gt.${cursor.i})`,
-      );
-    } else {
-      query = query.or(
-        `sort_date.lt.${cursor.s},and(sort_date.eq.${cursor.s},id.lt.${cursor.i})`,
-      );
+  switch (filters.sort) {
+    case "newest_first":
+    case "oldest_first": {
+      const asc = filters.sort === "oldest_first";
+      query = query
+        .order("sort_date", { ascending: asc, nullsFirst: false })
+        .order("id", { ascending: asc });
+      if (cursor) {
+        query = asc
+          ? query.or(`sort_date.gt.${cursor.s},and(sort_date.eq.${cursor.s},id.gt.${cursor.i})`)
+          : query.or(`sort_date.lt.${cursor.s},and(sort_date.eq.${cursor.s},id.lt.${cursor.i})`);
+      }
+      break;
+    }
+    case "issued_asc":
+    case "issued_desc": {
+      const asc = filters.sort === "issued_asc";
+      query = query
+        .order("issued_date", { ascending: asc, nullsFirst: false })
+        .order("id", { ascending: asc });
+      if (cursor) {
+        if (cursor.n) {
+          query = query.or(`and(issued_date.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
+        } else if (asc) {
+          query = query.or(`issued_date.gt.${cursor.s},and(issued_date.eq.${cursor.s},id.gt.${cursor.i}),issued_date.is.null`);
+        } else {
+          query = query.or(`issued_date.lt.${cursor.s},and(issued_date.eq.${cursor.s},id.lt.${cursor.i}),issued_date.is.null`);
+        }
+      }
+      break;
+    }
+    case "expiring_soonest": {
+      query = query
+        .order("expiration_date", { ascending: true, nullsFirst: false })
+        .order("id", { ascending: true });
+      if (cursor) {
+        if (cursor.n) {
+          query = query.or(`and(expiration_date.is.null,id.gt.${cursor.i})`);
+        } else {
+          query = query.or(`expiration_date.gt.${cursor.s},and(expiration_date.eq.${cursor.s},id.gt.${cursor.i}),expiration_date.is.null`);
+        }
+      }
+      break;
+    }
+    case "name_asc":
+    case "name_desc": {
+      const asc = filters.sort === "name_asc";
+      query = query
+        .order("business_name", { ascending: asc, nullsFirst: false })
+        .order("id", { ascending: asc });
+      if (cursor) {
+        const v = pgVal(cursor.s);
+        if (cursor.n) {
+          query = query.or(`and(business_name.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
+        } else if (asc) {
+          query = query.or(`business_name.gt.${v},and(business_name.eq.${v},id.gt.${cursor.i}),business_name.is.null`);
+        } else {
+          query = query.or(`business_name.lt.${v},and(business_name.eq.${v},id.lt.${cursor.i}),business_name.is.null`);
+        }
+      }
+      break;
+    }
+    case "license_type_asc":
+    case "license_type_desc": {
+      const asc = filters.sort === "license_type_asc";
+      query = query
+        .order("license_type_raw", { ascending: asc, nullsFirst: false })
+        .order("id", { ascending: asc });
+      if (cursor) {
+        const v = pgVal(cursor.s);
+        if (cursor.n) {
+          query = query.or(`and(license_type_raw.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
+        } else if (asc) {
+          query = query.or(`license_type_raw.gt.${v},and(license_type_raw.eq.${v},id.gt.${cursor.i}),license_type_raw.is.null`);
+        } else {
+          query = query.or(`license_type_raw.lt.${v},and(license_type_raw.eq.${v},id.lt.${cursor.i}),license_type_raw.is.null`);
+        }
+      }
+      break;
     }
   }
 
@@ -353,6 +424,8 @@ export async function fetchDashboardPage(args: {
     state_code: r.states?.state_code ?? null,
     // Reserved column — null until Agent A adds classified_records.data_source_channel
     data_source_channel: null,
+    expiration_date: r.expiration_date ?? null,
+    license_type_raw: r.license_type_raw ?? null,
     business_name: r.business_name ?? null,
     dba_name: r.dba ?? null,
     // businesses JOIN removed: RLS policy does a correlated classified_records
@@ -382,12 +455,36 @@ export async function fetchDashboardPage(args: {
 
   const hasMore = rows.length > PAGE_SIZE;
   const last = records[records.length - 1];
+
+  function getSortFieldValue(record: DashboardRecord): string | null {
+    switch (filters.sort) {
+      case "newest_first":
+      case "oldest_first":
+        return record.sort_date ?? record.classified_at;
+      case "issued_asc":
+      case "issued_desc":
+        return record.issued_date;
+      case "expiring_soonest":
+        return record.expiration_date;
+      case "name_asc":
+      case "name_desc":
+        return record.business_name;
+      case "license_type_asc":
+      case "license_type_desc":
+        return record.license_type_raw;
+      default:
+        return record.sort_date ?? record.classified_at;
+    }
+  }
+
+  const sortVal = last ? getSortFieldValue(last) : null;
   const nextCursor =
     hasMore && last
-      ? encodeCursor({
-          s: last.sort_date ?? last.classified_at,
-          i: last.id,
-        })
+      ? encodeCursor(
+          sortVal !== null
+            ? { s: sortVal, i: last.id }
+            : { s: "", i: last.id, n: true },
+        )
       : null;
 
   return {
@@ -614,6 +711,8 @@ export async function fetchAllRecordsForExport(args: {
       business_id,
       business_name,
       dba,
+      expiration_date,
+      license_type_raw,
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
@@ -655,6 +754,11 @@ export async function fetchAllRecordsForExport(args: {
     );
   }
 
+  if (filters.search.trim().length > 0) {
+    const esc = filters.search.trim().replace(/"/g, '""');
+    query = query.or(`business_name.ilike."%${esc}%",dba.ilike."%${esc}%"`);
+  }
+
   const customerStatusOr = buildCustomerStatusOrClause(
     filters.showInactive,
     protectedBusinessIds,
@@ -685,11 +789,36 @@ export async function fetchAllRecordsForExport(args: {
     }
   }
 
-  const ascending = filters.sort === "oldest_first";
-  query = query
-    .order("sort_date", { ascending, nullsFirst: false })
-    .order("id", { ascending })
-    .limit(args.limit);
+  switch (filters.sort) {
+    case "oldest_first":
+    case "newest_first": {
+      const asc = filters.sort === "oldest_first";
+      query = query.order("sort_date", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
+      break;
+    }
+    case "issued_asc":
+    case "issued_desc": {
+      const asc = filters.sort === "issued_asc";
+      query = query.order("issued_date", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
+      break;
+    }
+    case "expiring_soonest":
+      query = query.order("expiration_date", { ascending: true, nullsFirst: false }).order("id", { ascending: true });
+      break;
+    case "name_asc":
+    case "name_desc": {
+      const asc = filters.sort === "name_asc";
+      query = query.order("business_name", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
+      break;
+    }
+    case "license_type_asc":
+    case "license_type_desc": {
+      const asc = filters.sort === "license_type_asc";
+      query = query.order("license_type_raw", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
+      break;
+    }
+  }
+  query = query.limit(args.limit);
 
   const { data, error } = await query;
   if (error) {
@@ -726,6 +855,8 @@ export async function fetchAllRecordsForExport(args: {
     state_id: r.state_id,
     state_code: r.states?.state_code ?? null,
     data_source_channel: null,
+    expiration_date: r.expiration_date ?? null,
+    license_type_raw: r.license_type_raw ?? null,
     business_name: r.business_name ?? null,
     dba_name: r.dba ?? null,
     business: r.business_id

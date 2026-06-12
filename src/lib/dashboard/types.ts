@@ -152,6 +152,10 @@ export type DashboardRecord = {
   state_code: string | null;
   /** Reserved for the channel-discipline audit column. Always null until Agent A adds the column. */
   data_source_channel: DataSourceChannel | null;
+  /** YYYY-MM-DD, or null when the state doesn't provide expiration dates. */
+  expiration_date: string | null;
+  /** Raw license type string from the state's source data (e.g. "Full Retail"). Distinct from license_record_type (the event). */
+  license_type_raw: string | null;
   /** Denormalized from classified_records payload. Preferred source is business?.primary_legal_name. */
   business_name: string | null;
   /** Denormalized from classified_records payload. Preferred source is business?.primary_dba_name. */
@@ -172,7 +176,16 @@ export type DashboardRecord = {
   } | null;
 };
 
-export type SortOrder = "newest_first" | "oldest_first";
+export type SortOrder =
+  | "newest_first"
+  | "oldest_first"
+  | "name_asc"
+  | "name_desc"
+  | "issued_desc"
+  | "issued_asc"
+  | "expiring_soonest"
+  | "license_type_asc"
+  | "license_type_desc";
 
 /**
  * StatusTabs filter axis. Mirrors the StatusTabValue type from
@@ -189,6 +202,8 @@ export type FilterState = {
   businessArchetypes: BusinessArchetype[];
   daysWindow: number | null; // null = all time; e.g., 7, 30, 90
   sort: SortOrder;
+  /** Full-text search term (partial match on business_name + dba). URL param: ?q= */
+  search: string;
   /**
    * When false (default), the query hides records with customer_status =
    * 'Inactive'. NULL rows remain visible regardless. When true, no
@@ -217,6 +232,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   businessArchetypes: [],
   daysWindow: null,
   sort: "newest_first",
+  search: "",
   showInactive: false,
   dispositionTab: "all",
   newThisWeek: false,
@@ -242,10 +258,12 @@ export type StateHealthEntry = {
 export type StateHealthMap = Map<string, StateHealthEntry>;
 
 export type CursorPayload = {
-  /** sort_date ISO timestamp (COALESCE(issued_date::timestamptz, first_observed_at)) */
+  /** Sort field value (ISO timestamp, date string, or text). Empty string when n=true. */
   s: string;
-  /** id tiebreaker for identical sort_date values */
+  /** id tiebreaker */
   i: string;
+  /** true when the sort field was null — cursor is in the NULLS LAST region */
+  n?: true;
 };
 
 export type PageResult = {

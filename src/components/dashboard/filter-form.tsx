@@ -15,6 +15,7 @@ import type {
   FilterState,
   LicenseRecordType,
   SignalStrength,
+  SortOrder,
 } from "@/lib/dashboard/types";
 
 /**
@@ -72,9 +73,16 @@ const DAYS_OPTIONS = [
   { value: "365", label: "Last year" },
 ];
 
-const SORT_OPTIONS = [
+const SORT_OPTIONS: Array<{ value: SortOrder; label: string }> = [
   { value: "newest_first", label: "Newest first" },
   { value: "oldest_first", label: "Oldest first" },
+  { value: "name_asc", label: "Business name A→Z" },
+  { value: "name_desc", label: "Business name Z→A" },
+  { value: "issued_desc", label: "Recently issued" },
+  { value: "issued_asc", label: "Oldest issued" },
+  { value: "expiring_soonest", label: "Expiring soonest" },
+  { value: "license_type_asc", label: "License type A→Z" },
+  { value: "license_type_desc", label: "License type Z→A" },
 ];
 
 function multiSelectClassName() {
@@ -113,6 +121,8 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       businessArchetypes: archetype as FilterState["businessArchetypes"],
       daysWindow: days ? Number.parseInt(days, 10) : null,
       sort: (sort as FilterState["sort"]) ?? "newest_first",
+      // Search bar is separate UI — preserve whatever's currently in the URL.
+      search: current.search,
       showInactive,
       // Disposition tab is owned by StatusTabs (separate URL param `?tab=`),
       // not the sidebar form. Preserve whatever's currently in the URL so

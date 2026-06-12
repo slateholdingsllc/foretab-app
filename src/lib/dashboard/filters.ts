@@ -72,7 +72,17 @@ const VALID_BUSINESS_ARCHETYPES: BusinessArchetype[] = [
   "other",
 ];
 
-const VALID_SORTS: SortOrder[] = ["newest_first", "oldest_first"];
+const VALID_SORTS: SortOrder[] = [
+  "newest_first",
+  "oldest_first",
+  "name_asc",
+  "name_desc",
+  "issued_desc",
+  "issued_asc",
+  "expiring_soonest",
+  "license_type_asc",
+  "license_type_desc",
+];
 
 const VALID_DAYS_WINDOWS = new Set([7, 30, 90, 180, 365]);
 
@@ -123,6 +133,7 @@ export function parseFiltersFromSearchParams(
     businessArchetypes: parseList(get("archetype"), VALID_BUSINESS_ARCHETYPES),
     daysWindow: parseDaysWindow(get("days")),
     sort: parseSort(get("sort")),
+    search: get("q")?.trim() ?? "",
     showInactive: get("inactive") === "1",
     dispositionTab: parseDispositionTab(get("tab")),
     newThisWeek: get("ntw") === "1",
@@ -143,6 +154,7 @@ export function serializeFiltersToSearchParams(filters: FilterState): URLSearchP
     params.set("archetype", filters.businessArchetypes.join(","));
   if (filters.daysWindow !== null) params.set("days", String(filters.daysWindow));
   if (filters.sort !== DEFAULT_FILTER_STATE.sort) params.set("sort", filters.sort);
+  if (filters.search.length > 0) params.set("q", filters.search);
   if (filters.showInactive) params.set("inactive", "1");
   if (filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab) {
     params.set("tab", filters.dispositionTab);
@@ -171,6 +183,7 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.businessArchetypes.length > 0 ||
     filters.daysWindow !== null ||
     filters.sort !== DEFAULT_FILTER_STATE.sort ||
+    filters.search.length > 0 ||
     filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab ||
     filters.newThisWeek
   );
