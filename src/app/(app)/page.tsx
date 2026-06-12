@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
+import { MobileWorklistControls } from "@/components/dashboard/mobile-worklist-controls";
 import { WorklistSearchBar } from "@/components/dashboard/worklist-search-bar";
 import { DensityProvider } from "@/components/dashboard/disposition/density-provider";
 import type { StatusTabValue } from "@/components/dashboard/disposition/status-tabs";
@@ -167,7 +168,16 @@ export default async function DashboardPage({
           className="h-full"
           tabs={
             <>
-              <WorklistSearchBar filters={filters} />
+              <MobileWorklistControls
+                filters={filters}
+                accessibleStateCodes={accessibleStateCodes}
+                savedFilters={savedFilters}
+                resultCount={page.totalCount ?? undefined}
+              />
+              {/* Desktop search — hidden on mobile; MobileWorklistControls renders its own. */}
+              <div className="hidden lg:block">
+                <WorklistSearchBar filters={filters} />
+              </div>
               <DispositionTabsBar
                 active={filters.dispositionTab}
                 counts={tabCounts}
