@@ -3,6 +3,8 @@ import type {
   DispositionStatus,
 } from "@/lib/disposition/types";
 import { createClient } from "@/lib/supabase/server";
+import { rpcFetchAllRecordsForExport, rpcFetchDashboardPage } from "@/lib/rpc/feed";
+import { USE_RPC_ENFORCEMENT } from "@/lib/rpc/flag";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
 import type { DashboardRecord, FilterState, PageResult } from "./types";
@@ -98,6 +100,8 @@ export async function fetchDashboardPage(args: {
   filters: FilterState;
   cursor: string | null;
 }): Promise<PageResult> {
+  if (USE_RPC_ENFORCEMENT) return rpcFetchDashboardPage(args);
+
   const supabase = await createClient();
   const cursor = decodeCursor(args.cursor);
   const { filters } = args;
@@ -646,6 +650,8 @@ export async function fetchAllRecordsForExport(args: {
   filters: FilterState;
   limit: number;
 }): Promise<DashboardRecord[]> {
+  if (USE_RPC_ENFORCEMENT) return rpcFetchAllRecordsForExport(args);
+
   if (args.limit <= 0) return [];
 
   const supabase = await createClient();
