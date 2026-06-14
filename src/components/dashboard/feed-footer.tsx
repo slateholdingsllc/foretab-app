@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import type { ExportStatus } from "@/lib/dashboard/queries";
 import type { StateAttribution } from "@/lib/state-attributions";
@@ -117,13 +116,12 @@ function ExportLink({
     : `Up to ${cap.toLocaleString()} rows per export.`;
 
   return (
-    <Link
+    <a
       href={href}
       className={`${baseClass} hover:bg-accent hover:text-accent-foreground`}
       title={title}
-      prefetch={false}
     >
       Export CSV
-    </Link>
+    </a>
   );
 }
