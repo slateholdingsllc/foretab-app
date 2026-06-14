@@ -2,36 +2,95 @@
 
 import type { BusinessDisposition } from "@/lib/disposition/types";
 import { createClient } from "@/lib/supabase/server";
-import type { DashboardRecord, FilterState, PageResult } from "@/lib/dashboard/types";
+import type { DashboardRecord, DispositionTab, FilterState, PageResult, SortOrder } from "@/lib/dashboard/types";
 import { PAGE_SIZE } from "@/lib/dashboard/types";
 import { decodeRpcOffset, encodeRpcCursor } from "./cursor";
 import { detectRpcError } from "./errors";
 import type { RawFeedRecord } from "./types";
 
 /**
- * RPC-path implementation of the dashboard data layer.
+ * RPC-path implementation of the dashboard data layer (migration 000012).
  *
- * Filter parity vs. the direct-PostgREST path — Phase 2 status:
- *   Supported:  states, search (also matches city), pagination
- *   No-op:      licenseTypes (wrong column in Phase 1 RPC: license_type_raw ≠
- *               license_record_type), signalStrengths, businessArchetypes,
- *               daysWindow, newThisWeek, city, zip, sort, dispositionTab
+ * All FilterState fields now map to RPC params as of Phase 3. Known gaps:
  *
- * Unsupported filters fall back to "return all" silently. Flag=false path is
- * unaffected and continues to support the full filter set. Add mappings here
- * as Agent A extends the RPC parameter set in future phases.
+ *   Sort gaps (5 FilterState sorts with no RPC p_sort equivalent yet):
+ *     issued_asc      → needs "issued-oldest"
+ *     expiring_soonest→ needs "expiring-soonest"
+ *     license_type_asc→ needs "license-a-z"
+ *     license_type_desc→ needs "license-z-a"
+ *     zip_asc         →  needs "zip-a-z"
+ *   All 5 fall back to "newest" until Agent A adds them to the whitelist.
  *
- * Disposition enrichment still runs via customer_business_disposition (not
- * in the three-table lockdown) — identical to the direct path.
+ *   p_icp_relevance: no FilterState field yet; always null.
+ *
+ *   p_license_type: still null (filters license_type_raw; no FilterState source).
+ *
+ *   p_date_from: FilterState has no dateFrom field; only p_days_window is sent.
  */
+
+// ---------------------------------------------------------------------------
+// Sort mapping: FilterState.sort → RPC p_sort string
+// ---------------------------------------------------------------------------
+
+const RPC_SORT: Partial<Record<SortOrder, string>> = {
+  newest_first:  "newest",
+  oldest_first:  "oldest",
+  name_asc:      "a-z",
+  name_desc:     "z-a",
+  city_asc:      "city-a-z",
+  city_desc:     "city-z-a",
+  issued_desc:   "issued-newest",
+  // Gaps flagged to Agent A for migration 000013:
+  // issued_asc       → "issued-oldest"
+  // expiring_soonest → "expiring-soonest"
+  // license_type_asc → "license-a-z"
+  // license_type_desc→ "license-z-a"
+  // zip_asc          → "zip-a-z"
+};
+
+// ---------------------------------------------------------------------------
+// Disposition tab mapping: DispositionTab → p_disposition_status
+// ---------------------------------------------------------------------------
+
+function mapDispositionStatus(tab: DispositionTab): string | null {
+  if (tab === "all") return null;
+  // "uncontacted" in FilterState = records with no disposition row for this
+  // customer. Agent A's RPC uses "none" for this semantic.
+  if (tab === "uncontacted") return "none";
+  // saved / working / won / lost / skip map directly.
+  return tab;
+}
+
+// ---------------------------------------------------------------------------
+// Build the shared filter param object used by get_feed, get_feed_count,
+// and export_feed. Keeps the three call sites in sync automatically.
+// ---------------------------------------------------------------------------
+
+function buildFilterParams(filters: FilterState) {
+  return {
+    p_state_ids:          null as string[] | null,  // resolved + set by caller
+    p_customer_status:    null,                      // invariant: never filtered
+    p_license_type:       null,                      // license_type_raw not in FilterState
+    p_license_record_type: filters.licenseTypes.length > 0 ? filters.licenseTypes : null,
+    p_signal_strength:    filters.signalStrengths.length > 0 ? filters.signalStrengths : null,
+    p_business_archetype: filters.businessArchetypes.length > 0 ? filters.businessArchetypes : null,
+    p_days_window:        filters.daysWindow ?? null,
+    p_date_from:          null,                      // FilterState has no dateFrom
+    p_new_this_week:      filters.newThisWeek ? true : null,
+    p_search:             filters.search.trim() || null,
+    p_city:               filters.city.trim() || null,
+    p_zip:                filters.zip.trim() || null,
+    p_icp_relevance:      null,                      // no FilterState field yet
+    p_disposition_status: mapDispositionStatus(filters.dispositionTab),
+    p_sort:               RPC_SORT[filters.sort] ?? "newest",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // State code map (state_id → state_code) — states table is NOT locked down
 // ---------------------------------------------------------------------------
 
-async function fetchStateCodeMap(
-  stateIds: string[],
-): Promise<Map<string, string>> {
+async function fetchStateCodeMap(stateIds: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (stateIds.length === 0) return map;
 
@@ -77,10 +136,7 @@ async function fetchDispositionsByBusinessId(
 // Mapper: flat RawFeedRecord → DashboardRecord
 // ---------------------------------------------------------------------------
 
-function rawToRecord(
-  raw: RawFeedRecord,
-  stateCodeMap: Map<string, string>,
-): DashboardRecord {
+function rawToRecord(raw: RawFeedRecord, stateCodeMap: Map<string, string>): DashboardRecord {
   const stateCode = stateCodeMap.get(raw.state_id) ?? null;
 
   return {
@@ -94,11 +150,11 @@ function rawToRecord(
     off_premises: raw.off_premises,
     beverage_scope: raw.beverage_scope as DashboardRecord["beverage_scope"],
     signal_strength: raw.signal_strength as DashboardRecord["signal_strength"],
-    // RPC doesn't return signal_strength_reason; card renders it conditionally so null is safe.
+    // RPC doesn't return signal_strength_reason; card renders it conditionally.
     signal_strength_reason: null,
     customer_status: raw.customer_status as DashboardRecord["customer_status"],
     disposition: null,
-    // RPC doesn't return classified_records.notes (operator field); null is safe.
+    // RPC doesn't return classified_records.notes (operator field, not customer-facing).
     notes: null,
     classified_at: raw.classified_at,
     issued_date: raw.issued_date ?? null,
@@ -135,7 +191,7 @@ function rawToRecord(
 }
 
 // ---------------------------------------------------------------------------
-// State-code → UUID resolution (states table is NOT in the lockdown)
+// State-code → UUID resolution
 // ---------------------------------------------------------------------------
 
 async function resolveStateIds(
@@ -167,30 +223,24 @@ export async function rpcFetchDashboardPage(args: {
   if (stateIdsResult === "empty_filter") {
     return { records: [], nextCursor: null, totalCount: 0 };
   }
-  const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
 
-  // p_license_type filters license_type_raw (the raw string from state data,
-  // e.g. "Full Retail Beer"). FilterState.licenseTypes holds LicenseRecordType
-  // enum values (e.g. "new_issuance") which are a different column. Pass null
-  // until Agent A adds a p_license_record_type parameter to get_feed.
-  const search = filters.search.trim() || null;
+  const filterParams = buildFilterParams(filters);
+  filterParams.p_state_ids = stateIdsResult.length > 0 ? stateIdsResult : null;
 
   const supabase = await createClient();
 
   const [feedResult, countResult] = await Promise.all([
     supabase.rpc("get_feed", {
-      p_state_ids: stateIds,
+      ...filterParams,
       p_limit: PAGE_SIZE + 1,
       p_offset: offset,
-      p_customer_status: null,
-      p_license_type: null,
-      p_search: search,
     }),
     supabase.rpc("get_feed_count", {
-      p_state_ids: stateIds,
-      p_customer_status: null,
-      p_license_type: null,
-      p_search: search,
+      ...filterParams,
+      // get_feed_count has no p_limit, p_offset, p_sort
+      p_limit: undefined,
+      p_offset: undefined,
+      p_sort: undefined,
     }),
   ]);
 
@@ -203,18 +253,13 @@ export async function rpcFetchDashboardPage(args: {
   const hasMore = rows.length > PAGE_SIZE;
   const pageRows = rows.slice(0, PAGE_SIZE);
 
-  // Resolve state_id → state_code for the unique state IDs on this page.
   const pageStateIds = Array.from(new Set(pageRows.map((r) => r.state_id)));
   const stateCodeMap = await fetchStateCodeMap(pageStateIds);
 
   const records: DashboardRecord[] = pageRows.map((r) => rawToRecord(r, stateCodeMap));
 
   const pageBusinessIds = Array.from(
-    new Set(
-      records
-        .map((r) => r.business?.id)
-        .filter((id): id is string => Boolean(id)),
-    ),
+    new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
   );
   const dispositionMap = await fetchDispositionsByBusinessId(pageBusinessIds);
   for (const record of records) {
@@ -222,7 +267,6 @@ export async function rpcFetchDashboardPage(args: {
     if (bid) record.disposition = dispositionMap.get(bid) ?? null;
   }
 
-  // count is not quota-gated; best-effort (null on error rather than throw)
   const totalCount =
     !countResult.error && typeof countResult.data === "number"
       ? countResult.data
@@ -249,16 +293,16 @@ export async function rpcFetchAllRecordsForExport(args: {
 
   const stateIdsResult = await resolveStateIds(filters.states);
   if (stateIdsResult === "empty_filter") return [];
-  const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
 
-  const search = filters.search.trim() || null;
+  const filterParams = buildFilterParams(filters);
+  filterParams.p_state_ids = stateIdsResult.length > 0 ? stateIdsResult : null;
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("export_feed", {
-    p_state_ids: stateIds,
-    p_customer_status: null,
-    p_license_type: null,
-    p_search: search,
+    ...filterParams,
+    // export_feed has no p_limit, p_offset
+    p_limit: undefined,
+    p_offset: undefined,
   });
 
   if (error) {
@@ -267,18 +311,13 @@ export async function rpcFetchAllRecordsForExport(args: {
 
   const rows = ((data ?? []) as RawFeedRecord[]).slice(0, limit);
 
-  // Resolve state codes for all unique state IDs in the export batch.
   const exportStateIds = Array.from(new Set(rows.map((r) => r.state_id)));
   const stateCodeMap = await fetchStateCodeMap(exportStateIds);
 
   const records = rows.map((r) => rawToRecord(r, stateCodeMap));
 
   const exportBusinessIds = Array.from(
-    new Set(
-      records
-        .map((r) => r.business?.id)
-        .filter((id): id is string => Boolean(id)),
-    ),
+    new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
   );
   const dispositionMap = await fetchDispositionsByBusinessId(exportBusinessIds);
   for (const record of records) {
