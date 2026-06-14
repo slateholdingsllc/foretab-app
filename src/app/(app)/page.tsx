@@ -26,6 +26,7 @@ import {
   type ExportStatus,
   PAID_EXPORT_MAX_ROWS,
 } from "@/lib/dashboard/queries";
+import { QuotaExceededError } from "@/lib/rpc/errors";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -151,6 +152,8 @@ export default async function DashboardPage({
       : [];
   const page =
     pageResult.status === "fulfilled" ? pageResult.value : null;
+  const feedError =
+    pageResult.status === "rejected" ? pageResult.reason : null;
   const healthMap =
     healthMapResult.status === "fulfilled" ? healthMapResult.value : new Map();
   const exportStatus =
@@ -247,6 +250,11 @@ export default async function DashboardPage({
               filters={filters}
               healthMap={healthMap}
               exportStatus={exportStatus}
+            />
+          ) : feedError instanceof QuotaExceededError ? (
+            <SectionDegraded
+              message="You've reached your daily record limit. Resets at midnight UTC."
+              showRetry={false}
             />
           ) : (
             <SectionDegraded message="Records are taking longer than usual" />

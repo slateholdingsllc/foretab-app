@@ -59,7 +59,7 @@ export function CityTypeahead({
       const results = await searchCities(val, selectedStates);
       setSuggestions(results);
       setOpen(results.length > 0);
-    }, 220);
+    }, 300);
   }
 
   function select(city: string) {

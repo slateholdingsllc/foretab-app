@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { USE_RPC_ENFORCEMENT } from "@/lib/rpc/flag";
 
 /**
  * Type-ahead city lookup scoped to the customer's accessible states (via RLS
@@ -20,6 +21,26 @@ export async function searchCities(
   if (trimmed.length < 2) return [];
 
   const supabase = await createClient();
+
+  if (USE_RPC_ENFORCEMENT) {
+    const { data, error } = await supabase.rpc("search_cities", {
+      p_term: trimmed,
+      p_state_codes: selectedStates.length > 0 ? selectedStates : null,
+      p_limit: 8,
+    });
+    if (error || !data) return [];
+    const seen = new Set<string>();
+    const cities: string[] = [];
+    for (const r of data as Array<string | { city: string | null }>) {
+      const city = typeof r === "string" ? r : r.city;
+      if (city && !seen.has(city)) {
+        seen.add(city);
+        cities.push(city);
+      }
+    }
+    return cities;
+  }
+
   // biome-ignore lint/suspicious/noExplicitAny: supabase query chain
   let q: any = supabase
     .from("locations")
