@@ -1,19 +1,32 @@
 /**
- * Flat return type from Agent A's feed_record composite type.
+ * Flat return type matching Agent A's feed_record composite type (31 columns).
  *
- * Mirrors classified_records scalar columns plus flat location_* and
- * state_code from the internal JOINs. Two fields are new vs. the
- * direct-PostgREST path: location_street and location_normalized_address
- * (previously buried in the embedded locations object, now top-level).
+ * Verified against pg_type/pg_attribute 2026-06-13. Notable deltas vs the
+ * original Phase 0 proposal:
  *
- * business_name and dba are COALESCE'd with businesses.primary_legal_name /
- * primary_dba_name by the RPC — same field names, better values once
- * entity resolution has run.
+ *   NOT returned by RPC (handle in mapper with fallbacks):
+ *     classification_version  — hardcode "2"; all published records are post-v1
+ *     signal_strength_reason  — null
+ *     notes                   — null (operator notes, not surfaced to customers)
+ *     state_code              — derive from state_id via states lookup in caller
+ *     location_state_code     — derive from state_id (same map)
+ *
+ *   Returned by RPC but not in DashboardRecord (accepted, no consumer yet):
+ *     phone, email, contact_name, mailing_address, effective_date,
+ *     created_at, updated_at
+ *
+ * The search filter in get_feed also matches location_city (broader than the
+ * direct PostgREST path, which only matches business_name + dba). Noted but
+ * no action required — more results is acceptable parity.
  */
 export type RawFeedRecord = {
-  // classified_records scalar columns
+  // Identity
   id: string;
-  classification_version: string;
+  state_id: string;
+  business_id: string | null;
+  location_id: string | null;
+
+  // Classification
   license_record_type: string | null;
   icp_relevance: string[] | null;
   business_archetype: string | null;
@@ -21,27 +34,36 @@ export type RawFeedRecord = {
   off_premises: boolean | null;
   beverage_scope: string | null;
   signal_strength: string | null;
-  signal_strength_reason: string | null;
   customer_status: string | null;
-  notes: string | null;
-  classified_at: string;
+
+  // Contact fields (returned by RPC, not yet in DashboardRecord)
+  phone: string | null;
+  email: string | null;
+  contact_name: string | null;
+  mailing_address: string | null;
+
+  // Dates
   issued_date: string | null;
-  first_observed_at: string | null;
-  sort_date: string | null;
-  state_id: string;
-  business_id: string | null;
-  business_name: string | null; // COALESCE(businesses.primary_legal_name, cr.business_name)
-  dba: string | null; // COALESCE(businesses.primary_dba_name, cr.dba)
+  effective_date: string | null;
   expiration_date: string | null;
+  sort_date: string | null;
+  first_observed_at: string | null;
+  classified_at: string;
+  created_at: string;
+  updated_at: string;
+
+  // License
   license_type_raw: string | null;
-  // denormalized location columns on classified_records
+
+  // Denormalized names — COALESCE(businesses.primary_*, cr.*)
+  business_name: string | null;
+  dba: string | null;
+
+  // Denormalized location columns on classified_records
   location_city: string | null;
   location_zip: string | null;
-  // from states JOIN
-  state_code: string | null;
-  // from locations JOIN (flat)
-  location_id: string | null;
-  location_street: string | null; // NEW
-  location_normalized_address: string | null; // NEW
-  location_state_code: string | null;
+
+  // From locations LEFT JOIN (flat)
+  location_street: string | null;
+  location_normalized_address: string | null;
 };

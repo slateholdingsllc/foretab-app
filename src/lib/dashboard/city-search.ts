@@ -26,7 +26,6 @@ export async function searchCities(
     const { data, error } = await supabase.rpc("search_cities", {
       p_term: trimmed,
       p_state_codes: selectedStates.length > 0 ? selectedStates : null,
-      p_limit: 8,
     });
     if (error || !data) return [];
     const seen = new Set<string>();
