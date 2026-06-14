@@ -229,7 +229,7 @@ export async function rpcFetchDashboardPage(args: {
       : null;
 
   // Fire-and-forget access log — POST transaction, so INSERT works.
-  supabase.rpc("log_feed_access", { p_rpc_name: "get_feed" }).then(() => {}).catch(() => {});
+  void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "get_feed" })).catch(() => {});
 
   return {
     records,
@@ -290,7 +290,7 @@ export async function rpcFetchAllRecordsForExport(args: {
   }
 
   // Fire-and-forget access log.
-  supabase.rpc("log_feed_access", { p_rpc_name: "export_feed" }).then(() => {}).catch(() => {});
+  void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "export_feed" })).catch(() => {});
 
   return records;
 }
