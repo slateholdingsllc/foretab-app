@@ -11,4 +11,6 @@
  * Phase 5 REVOKE happens only after a 24h prod-clean confirmation from
  * Agent C; until then the flag is the only gate.
  */
-export const USE_RPC_ENFORCEMENT = process.env.USE_RPC_ENFORCEMENT === "true";
+// STAGING TEST BRANCH — flag hardcoded true. NEVER MERGE TO MAIN.
+// Revert to: process.env.USE_RPC_ENFORCEMENT === "true"
+export const USE_RPC_ENFORCEMENT = true;
