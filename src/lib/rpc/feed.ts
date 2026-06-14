@@ -228,6 +228,9 @@ export async function rpcFetchDashboardPage(args: {
       ? countResult.data
       : null;
 
+  // Fire-and-forget access log — POST transaction, so INSERT works.
+  supabase.rpc("log_feed_access", { p_rpc_name: "get_feed" }).then(() => {}).catch(() => {});
+
   return {
     records,
     nextCursor: hasMore ? encodeRpcCursor(offset + PAGE_SIZE) : null,
@@ -285,6 +288,9 @@ export async function rpcFetchAllRecordsForExport(args: {
     const bid = record.business?.id;
     if (bid) record.disposition = dispositionMap.get(bid) ?? null;
   }
+
+  // Fire-and-forget access log.
+  supabase.rpc("log_feed_access", { p_rpc_name: "export_feed" }).then(() => {}).catch(() => {});
 
   return records;
 }
