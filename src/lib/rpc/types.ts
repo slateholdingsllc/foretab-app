@@ -59,6 +59,9 @@ export type RawFeedRecord = {
   business_name: string | null;
   dba: string | null;
 
+  // Lead type (migration 000003 by Agent A)
+  lead_type: string | null;
+
   // Denormalized location columns on classified_records
   location_city: string | null;
   location_zip: string | null;

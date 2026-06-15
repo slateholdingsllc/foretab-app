@@ -3,6 +3,7 @@ import {
   DEFAULT_FILTER_STATE,
   type DispositionTab,
   type FilterState,
+  type LeadType,
   type LicenseRecordType,
   type SignalStrength,
   type SortOrder,
@@ -89,6 +90,8 @@ const VALID_SORTS: SortOrder[] = [
 
 const VALID_DAYS_WINDOWS = new Set([7, 30, 90, 180, 365]);
 
+const VALID_LEAD_TYPES: LeadType[] = ["recurring", "event"];
+
 function parseList<T extends string>(raw: string | undefined, valid: readonly T[]): T[] {
   if (!raw) return [];
   const validSet = new Set(valid);
@@ -142,6 +145,7 @@ export function parseFiltersFromSearchParams(
     newThisWeek: get("ntw") === "1",
     city: get("city")?.trim() ?? "",
     zip: get("zip")?.trim() ?? "",
+    leadTypes: parseList(get("lead"), VALID_LEAD_TYPES),
   };
 }
 
@@ -167,6 +171,7 @@ export function serializeFiltersToSearchParams(filters: FilterState): URLSearchP
   if (filters.newThisWeek) params.set("ntw", "1");
   if (filters.city.length > 0) params.set("city", filters.city);
   if (filters.zip.length > 0) params.set("zip", filters.zip);
+  if (filters.leadTypes.length > 0) params.set("lead", filters.leadTypes.join(","));
   return params;
 }
 
@@ -194,6 +199,7 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.dispositionTab !== DEFAULT_FILTER_STATE.dispositionTab ||
     filters.newThisWeek ||
     filters.city.length > 0 ||
-    filters.zip.length > 0
+    filters.zip.length > 0 ||
+    filters.leadTypes.length > 0
   );
 }

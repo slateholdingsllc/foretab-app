@@ -82,6 +82,8 @@ export type BeverageScope =
  */
 export type CustomerStatus = "Active" | "Pending" | "Suspended" | "Inactive";
 
+export type LeadType = "recurring" | "event";
+
 /**
  * Disposition statuses that override the customer_status hide predicate.
  * Records dispositioned with one of these statuses stay visible regardless
@@ -174,6 +176,7 @@ export type DashboardRecord = {
     state_code: string | null;
     zip: string | null;
   } | null;
+  lead_type: string | null;
 };
 
 export type SortOrder =
@@ -230,6 +233,8 @@ export type FilterState = {
   city: string;
   /** ZIP prefix filter (prefix match on classified_records.location_zip). Empty = no filter. */
   zip: string;
+  /** Lead type filter. [] = show all (default). ["recurring"] = hide events. */
+  leadTypes: LeadType[];
 };
 
 export const DEFAULT_FILTER_STATE: FilterState = {
@@ -245,6 +250,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   newThisWeek: false,
   city: "",
   zip: "",
+  leadTypes: [],
 };
 
 export const PAGE_SIZE = 50;

@@ -136,6 +136,7 @@ export async function fetchDashboardPage(args: {
       dba,
       expiration_date,
       license_type_raw,
+      lead_type,
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
@@ -203,6 +204,9 @@ export async function fetchDashboardPage(args: {
   }
   if (filters.zip.trim().length > 0) {
     query = query.ilike("location_zip", `${filters.zip.trim()}%`);
+  }
+  if (filters.leadTypes.length > 0) {
+    query = query.in("lead_type", filters.leadTypes);
   }
 
   // StatusTabs filter axis. "all" = no predicate. "uncontacted" =
@@ -405,6 +409,7 @@ export async function fetchDashboardPage(args: {
       ? { id: r.business_id, primary_legal_name: null, primary_dba_name: null, primary_state_code: null }
       : null,
     location: r.locations,
+    lead_type: r.lead_type ?? null,
   }));
 
   // Enrich with the full disposition row. One extra query keyed by the
@@ -686,6 +691,7 @@ export async function fetchAllRecordsForExport(args: {
       dba,
       expiration_date,
       license_type_raw,
+      lead_type,
       locations ( id, normalized_address, street, city, state_code, zip ),
       states ( state_code )
     `,
@@ -737,6 +743,9 @@ export async function fetchAllRecordsForExport(args: {
   }
   if (filters.zip.trim().length > 0) {
     query = query.ilike("location_zip", `${filters.zip.trim()}%`);
+  }
+  if (filters.leadTypes.length > 0) {
+    query = query.in("lead_type", filters.leadTypes);
   }
 
   // Same StatusTabs filter as the page query — exports match what the
@@ -844,6 +853,7 @@ export async function fetchAllRecordsForExport(args: {
       ? { id: r.business_id, primary_legal_name: null, primary_dba_name: null, primary_state_code: null }
       : null,
     location: r.locations,
+    lead_type: r.lead_type ?? null,
   }));
 
   // Enrich with the full disposition row — same pattern as fetchDashboardPage.
