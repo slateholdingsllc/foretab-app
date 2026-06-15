@@ -15,6 +15,7 @@ import { getStateDisplayLabel } from "@/lib/dashboard/state-display";
 import type {
   BusinessArchetype,
   FilterState,
+  LeadType,
   LicenseRecordType,
   SignalStrength,
 } from "@/lib/dashboard/types";
@@ -116,6 +117,7 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
     const days = String(formData.get("days") ?? "");
     const sort = String(formData.get("sort") ?? "newest_first");
     const showInactive = formData.get("inactive") === "1";
+    const hideEvents = formData.get("hideEvents") === "1";
     // city/zip read from hidden inputs (kept in sync with local state)
     const city = String(formData.get("city") ?? "").trim();
     const zip = String(formData.get("zip") ?? "").trim();
@@ -138,6 +140,7 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       newThisWeek: current.newThisWeek,
       city,
       zip,
+      leadTypes: hideEvents ? (["recurring"] as LeadType[]) : [],
     };
 
     const params = serializeFiltersToSearchParams(next);
@@ -321,6 +324,34 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
             <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
               Includes revoked, expired, and otherwise inactive records. Hidden
               by default.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="hideEvents">Lead type</Label>
+        <label
+          htmlFor="hideEvents"
+          className="flex cursor-pointer items-start gap-2 text-sm"
+        >
+          <input
+            id="hideEvents"
+            type="checkbox"
+            name="hideEvents"
+            value="1"
+            defaultChecked={
+              current.leadTypes.includes("recurring") &&
+              !current.leadTypes.includes("event")
+            }
+            disabled={pending}
+            className="mt-0.5 h-4 w-4 rounded border-input"
+          />
+          <span className="leading-snug text-foreground-2">
+            Recurring licenses only
+            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+              Hides one-time event leads (festivals, fundraisers, pop-ups).
+              Events are shown by default.
             </span>
           </span>
         </label>

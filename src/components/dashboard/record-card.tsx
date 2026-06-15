@@ -121,6 +121,11 @@ export function RecordCard({
               {record.license_record_type.replace(/_/g, " ")}
             </Badge>
           ) : null}
+          {record.lead_type === "event" ? (
+            <Badge variant="outline" className="border-amber-500/60 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+              Event
+            </Badge>
+          ) : null}
           {record.business_archetype ? (
             <Badge variant="outline" className="capitalize">
               {record.business_archetype.replace(/_/g, " ")}

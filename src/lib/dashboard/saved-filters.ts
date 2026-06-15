@@ -3,6 +3,7 @@ import {
   DEFAULT_FILTER_STATE,
   type DispositionTab,
   type FilterState,
+  type LeadType,
   type LicenseRecordType,
   type SignalStrength,
   type SortOrder,
@@ -65,6 +66,7 @@ const VALID_BUSINESS_ARCHETYPES = new Set<BusinessArchetype>([
   "other",
 ]);
 const VALID_SORTS = new Set<SortOrder>(["newest_first", "oldest_first"]);
+const VALID_LEAD_TYPES = new Set<LeadType>(["recurring", "event"]);
 const VALID_DAYS_WINDOWS = new Set([7, 30, 90, 180, 365]);
 
 function pickArray<T>(
@@ -149,6 +151,8 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
       ? (dispositionTabRaw as DispositionTab)
       : DEFAULT_FILTER_STATE.dispositionTab;
 
+  const leadTypes = pickArray<LeadType>(r.leadTypes, VALID_LEAD_TYPES);
+
   return {
     states: cleanStates,
     licenseTypes,
@@ -162,6 +166,7 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
     newThisWeek: DEFAULT_FILTER_STATE.newThisWeek,
     city: DEFAULT_FILTER_STATE.city,
     zip: DEFAULT_FILTER_STATE.zip,
+    leadTypes,
   };
 }
 

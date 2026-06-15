@@ -122,6 +122,7 @@ function rawToRecord(
           zip: raw.location_zip,
         }
       : null,
+    lead_type: raw.lead_type ?? null,
   };
 }
 
@@ -165,6 +166,10 @@ function buildFilterParams(filters: FilterState) {
     p_icp_relevance:       null,
     p_disposition_status:  mapDispositionStatus(filters.dispositionTab),
     p_sort:                RPC_SORT[filters.sort] ?? "newest",
+    // p_lead_type added by Agent A in migration 000003 RPC update.
+    // undefined (not null) so it is omitted from JSON when not filtering —
+    // safe to call get_feed before A's RPC param migration is live.
+    p_lead_type: filters.leadTypes.length > 0 ? filters.leadTypes : undefined,
   };
 }
 
@@ -213,12 +218,14 @@ export async function rpcFetchDashboardPage(args: {
       ...filterParams,
       p_limit: PAGE_SIZE + 1,
       p_offset: offset,
+      p_lead_type: undefined, // omit until Agent A adds to get_feed
     }),
     supabase.rpc("get_feed_count", {
       ...filterParams,
       p_limit: undefined,
       p_offset: undefined,
       p_sort: undefined,
+      p_lead_type: undefined, // omit until Agent A adds to get_feed_count
     }),
   ]);
 
@@ -290,6 +297,7 @@ export async function rpcFetchAllRecordsForExport(args: {
     ...filterParams,
     p_limit: undefined,
     p_offset: undefined,
+    p_lead_type: undefined, // omit until Agent A adds to export_feed
   });
 
   if (error) {
