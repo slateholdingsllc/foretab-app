@@ -149,7 +149,7 @@ export async function getNewHighPriority(
 ): Promise<NewHighPriorityLead[]> {
   const ctx = await getAuthed();
   if (!ctx) return [];
-  const { supabase, customerId } = ctx;
+  const { supabase } = ctx;
 
   const { data: scopeRow } = await supabase.rpc(
     "customer_accessible_state_ids",
@@ -159,87 +159,68 @@ export async function getNewHighPriority(
     : [];
   if (accessibleStateIds.length === 0) return [];
 
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const sinceIso = sevenDaysAgo.toISOString();
-
-  // Panel header is "New · high priority" — filter to New signal only.
-  // WARM_LIKE_SIGNALS (Established) was included during v1→v2 vocabulary
-  // migration; now that v2 is confirmed, Established records belong to a
-  // separate "warm pipeline" surface, not the high-priority inbox.
-  const highPrioritySignals = HOT_LIKE_SIGNALS;
-
-  // Pull the qualifying classified_records in the last 7 days. Overfetch
-  // a bit so we can dedup to distinct businesses + still return `limit`
-  // after filtering against the customer's existing dispositions.
-  //
-  // businesses embed removed — its RLS policy runs a correlated subquery on
-  // classified_records per row and times out for accounts with many state IDs
-  // (same root cause as PR #61 for the feed). business_name + dba are
-  // denormalized columns on classified_records (migration 20260611000001).
-  // states(state_code) is a 9-row join with qual:true RLS — no cost.
-  const { data: candidateRows } = await supabase
-    .from("classified_records")
-    .select(
-      "business_id, state_id, signal_strength, created_at, business_name, dba, states(state_code)",
-    )
-    .in("state_id", accessibleStateIds)
-    .in("signal_strength", highPrioritySignals as unknown as string[])
-    .gte("created_at", sinceIso)
-    .not("business_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(limit * 8);
-
-  if (!candidateRows || candidateRows.length === 0) return [];
-
-  // Dedup to one row per business: keep the most recent qualifying event.
-  type Candidate = {
-    business_id: string;
+  // Route through get_feed — handles pagination, indexing, and disposition
+  // filtering natively. The previous direct classified_records query with
+  // order(created_at desc) + states() embed timed out on large 'New' row
+  // counts (104K rows on 9-state accounts exceed the 8s PostgREST limit).
+  // get_feed's p_disposition_status:"none" replaces the separate
+  // customer_business_disposition filter query.
+  type FeedRow = {
+    business_id: string | null;
     state_id: string;
-    signal_strength: string;
-    created_at: string;
+    signal_strength: string | null;
+    classified_at: string;
     business_name: string | null;
     dba: string | null;
-    states: { state_code: string } | Array<{ state_code: string }> | null;
   };
-  const distinctByBusiness = new Map<string, Candidate>();
-  for (const raw of candidateRows as unknown as Candidate[]) {
-    if (!distinctByBusiness.has(raw.business_id)) {
+  const { data: feedRows } = await supabase.rpc("get_feed", {
+    p_state_ids:           accessibleStateIds,
+    p_signal_strength:     [...HOT_LIKE_SIGNALS] as string[],
+    p_days_window:         7,
+    p_disposition_status:  "none",
+    p_limit:               limit * 8,
+    p_offset:              0,
+    p_sort:                "newest",
+    p_customer_status:     null,
+    p_license_type:        null,
+    p_license_record_type: null,
+    p_business_archetype:  null,
+    p_date_from:           null,
+    p_new_this_week:       null,
+    p_search:              null,
+    p_city:                null,
+    p_zip:                 null,
+    p_icp_relevance:       null,
+  });
+
+  if (!feedRows || feedRows.length === 0) return [];
+
+  // Dedup to one row per business (get_feed already orders newest first).
+  const distinctByBusiness = new Map<string, FeedRow>();
+  for (const raw of feedRows as FeedRow[]) {
+    if (raw.business_id && !distinctByBusiness.has(raw.business_id)) {
       distinctByBusiness.set(raw.business_id, raw);
     }
   }
-  const distinct = Array.from(distinctByBusiness.values());
+  const distinct = Array.from(distinctByBusiness.values()).slice(0, limit);
 
-  // Filter out businesses the rep has already dispositioned (any status
-  // other than uncontacted — uncontacted only exists explicitly when a
-  // rep reset the status; the implicit no-row case is what we WANT to
-  // surface as "new high priority").
-  const businessIds = distinct.map((d) => d.business_id);
-  const { data: existingRows } = await supabase
-    .from("customer_business_disposition")
-    .select("business_id, status")
-    .eq("customer_id", customerId)
-    .in("business_id", businessIds);
+  // Resolve state_id → state_code for display (states table is tiny: 1 row/state).
+  const stateIds = [...new Set(distinct.map((d) => d.state_id))];
+  const { data: stateRows } = await supabase
+    .from("states")
+    .select("id, state_code")
+    .in("id", stateIds);
+  const stateCodeMap = new Map<string, string>(
+    ((stateRows ?? []) as Array<{ id: string; state_code: string | null }>)
+      .filter((r) => r.state_code)
+      .map((r) => [r.id, r.state_code!]),
+  );
 
-  const dispositionedSet = new Set<string>();
-  for (const r of (existingRows ?? []) as Array<{
-    business_id: string;
-    status: string;
-  }>) {
-    if (r.status !== "uncontacted") dispositionedSet.add(r.business_id);
-  }
-
-  const fresh = distinct.filter((d) => !dispositionedSet.has(d.business_id));
-
-  // Resolve display fields + project to NewHighPriorityLead shape.
-  return fresh.slice(0, limit).map((c) => {
-    const stateRow = Array.isArray(c.states) ? c.states[0] : c.states;
-    return {
-      business_id: c.business_id,
-      display_name: c.dba ?? c.business_name ?? "—",
-      state_code: stateRow?.state_code ?? null,
-      signal_strength: c.signal_strength as SignalStrength,
-      surfaced_at: c.created_at,
-    };
-  });
+  return distinct.map((c) => ({
+    business_id: c.business_id!,
+    display_name: c.dba ?? c.business_name ?? "—",
+    state_code: stateCodeMap.get(c.state_id) ?? null,
+    signal_strength: (c.signal_strength ?? "New") as SignalStrength,
+    surfaced_at: c.classified_at,
+  }));
 }
