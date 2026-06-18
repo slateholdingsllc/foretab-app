@@ -78,32 +78,7 @@ export async function getDispositionFunnel(): Promise<DispositionFunnelData> {
   if (!ctx) return empty;
   const { supabase, customerId } = ctx;
 
-  // surfaced — needs explicit state-scope filter via the helper. RLS on
-  // classified_records may or may not be wired (see header comment); the
-  // join below makes this independent of that.
-  const { data: scopeRow } = await supabase.rpc(
-    "customer_accessible_state_ids",
-  );
-  const accessibleStateIds: string[] = Array.isArray(scopeRow)
-    ? (scopeRow as string[])
-    : [];
-
-  // Distinct-business count via paginated read + Set dedup, since
-  // PostgREST has no native COUNT(DISTINCT business_id). For sub-50k
-  // event sets this is acceptable; once the customer's accessible row
-  // count exceeds ~10k we revisit with an RPC.
-  const surfacedSet = new Set<string>();
-  if (accessibleStateIds.length > 0) {
-    const { data: surfacedRows } = await supabase
-      .from("classified_records")
-      .select("business_id")
-      .in("state_id", accessibleStateIds)
-      .not("business_id", "is", null)
-      .limit(50000);
-    for (const r of (surfacedRows ?? []) as Array<{ business_id: string }>) {
-      if (r.business_id) surfacedSet.add(r.business_id);
-    }
-  }
+  const { data: surfacedCount } = await supabase.rpc("get_surfaced_business_count");
 
   // The next three counts: customer_business_disposition has UNIQUE
   // (customer_id, business_id), so COUNT(*) on filtered rows IS the
@@ -132,7 +107,7 @@ export async function getDispositionFunnel(): Promise<DispositionFunnelData> {
   ]);
 
   return {
-    surfaced: surfacedSet.size,
+    surfaced: Number(surfacedCount ?? 0),
     saved: savedCount ?? 0,
     engaged: engagedCount ?? 0,
     won: wonCount ?? 0,
@@ -156,60 +131,17 @@ export async function getDispositionFunnel(): Promise<DispositionFunnelData> {
 export async function getWinRateBySignal(): Promise<SignalWinRateRow[]> {
   const ctx = await getAuthed();
   if (!ctx) return [];
-  const { supabase, customerId } = ctx;
+  const { supabase } = ctx;
 
-  const { data: scopeRow } = await supabase.rpc(
-    "customer_accessible_state_ids",
+  const { data: rows } = await supabase.rpc("get_win_rate_by_signal");
+
+  return ((rows ?? []) as Array<{ signal: string; total: number; won: number }>).map(
+    (r) => ({
+      signal: r.signal as SignalStrength,
+      total: Number(r.total),
+      won: Number(r.won),
+    }),
   );
-  const accessibleStateIds: string[] = Array.isArray(scopeRow)
-    ? (scopeRow as string[])
-    : [];
-  if (accessibleStateIds.length === 0) return [];
-
-  // 1. Get all (business_id, signal_strength) pairs in scope.
-  const { data: eventRows } = await supabase
-    .from("classified_records")
-    .select("business_id, signal_strength")
-    .in("state_id", accessibleStateIds)
-    .not("business_id", "is", null)
-    .not("signal_strength", "is", null)
-    .limit(50000);
-
-  // 2. Build cohort map: signal -> Set<business_id>
-  const cohort = new Map<string, Set<string>>();
-  for (const r of (eventRows ?? []) as Array<{
-    business_id: string;
-    signal_strength: string;
-  }>) {
-    if (!cohort.has(r.signal_strength)) cohort.set(r.signal_strength, new Set());
-    cohort.get(r.signal_strength)!.add(r.business_id);
-  }
-
-  // 3. Get the won set: distinct businesses with status='won'.
-  const { data: wonRows } = await supabase
-    .from("customer_business_disposition")
-    .select("business_id")
-    .eq("customer_id", customerId)
-    .eq("status", "won");
-  const wonSet = new Set<string>(
-    ((wonRows ?? []) as Array<{ business_id: string }>).map((r) => r.business_id),
-  );
-
-  // 4. Project per-signal: total in cohort + intersection with won.
-  const result: SignalWinRateRow[] = [];
-  for (const [signal, businesses] of cohort.entries()) {
-    let won = 0;
-    for (const bid of businesses) if (wonSet.has(bid)) won += 1;
-    result.push({
-      signal: signal as SignalStrength,
-      total: businesses.size,
-      won,
-    });
-  }
-
-  // Stable ordering by total desc — UI can sort differently if needed.
-  result.sort((a, b) => b.total - a.total);
-  return result;
 }
 
 // ===========================================================================
