@@ -1,14 +1,18 @@
 /**
- * USE_RPC_ENFORCEMENT feature flag.
+ * USE_RPC_ENFORCEMENT feature flag — function form guarantees runtime evaluation.
  *
- * false (default) → direct PostgREST queries (today's behaviour)
- * true            → SECURITY DEFINER RPC calls; direct SELECT on
- *                   classified_records / businesses / locations is
- *                   replaced by the six RPCs from Agent A's Phase 1.
+ * A module-level const baked false at build time when the env var was absent
+ * during the Vercel build (June 2026 incident: production camera showed direct
+ * classified_records reads firing alongside RPC calls despite the flag being set
+ * in the Vercel Production scope). Converting to a function ensures process.env
+ * is read at Lambda invocation time, not webpack bundle time.
  *
- * Set USE_RPC_ENFORCEMENT=true in the staging .env to run Phase 2
- * integration tests without touching the production direct-SELECT path.
- * Phase 5 REVOKE happens only after a 24h prod-clean confirmation from
- * Agent C; until then the flag is the only gate.
+ * false → direct PostgREST queries
+ * true  → SECURITY DEFINER RPC calls exclusively; direct SELECT on
+ *          classified_records / businesses / locations replaced by Agent A's
+ *          Phase 1 RPCs. REVOKE of the authenticated SELECT grant is gated on
+ *          the production camera confirming exclusive RPC routing.
  */
-export const USE_RPC_ENFORCEMENT = process.env.USE_RPC_ENFORCEMENT === "true";
+export function rpcEnforced(): boolean {
+  return process.env.USE_RPC_ENFORCEMENT === "true";
+}

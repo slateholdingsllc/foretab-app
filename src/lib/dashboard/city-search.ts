@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { USE_RPC_ENFORCEMENT } from "@/lib/rpc/flag";
+import { rpcEnforced } from "@/lib/rpc/flag";
 
 /**
  * Type-ahead city lookup scoped to the customer's accessible states (via RLS
@@ -22,7 +22,7 @@ export async function searchCities(
 
   const supabase = await createClient();
 
-  if (USE_RPC_ENFORCEMENT) {
+  if (rpcEnforced()) {
     const { data, error } = await supabase.rpc("search_cities", {
       p_term: trimmed,
       p_state_codes: selectedStates.length > 0 ? selectedStates : null,
