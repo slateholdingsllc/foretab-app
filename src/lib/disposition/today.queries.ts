@@ -85,22 +85,16 @@ export async function getDueFollowUpsForToday(
   // classified_record's signal_strength.
   const businessIds = dueRows.map((r) => (r as { business_id: string }).business_id);
 
-  const { data: signalRows } = await supabase
-    .from("classified_records")
-    .select("business_id, signal_strength, created_at")
-    .in("business_id", businessIds)
-    .not("signal_strength", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(limit * 20);
+  const { data: signalRows } = await supabase.rpc("get_signals_for_businesses", {
+    p_business_ids: businessIds,
+  });
 
   const signalByBusiness = new Map<string, SignalStrength>();
   for (const r of (signalRows ?? []) as Array<{
     business_id: string;
     signal_strength: string;
   }>) {
-    if (!signalByBusiness.has(r.business_id)) {
-      signalByBusiness.set(r.business_id, r.signal_strength as SignalStrength);
-    }
+    signalByBusiness.set(r.business_id, r.signal_strength as SignalStrength);
   }
 
   return (dueRows as unknown as Array<{

@@ -156,18 +156,16 @@ export async function logTouch(
   if (!ctx.ok) return ctx;
   const { supabase, customerId } = ctx;
 
-  // Resolve business_id from the classified_records row. RLS on
-  // classified_records gates this lookup to the customer's accessible
-  // states; if the row isn't accessible the resolve returns null.
-  const { data: record, error: recordError } = await supabase
-    .from("classified_records")
-    .select("id, business_id")
-    .eq("id", classifiedRecordId)
-    .maybeSingle();
+  // Resolve business_id via SECURITY DEFINER RPC — enforces state-scope
+  // and published_to_customers check without direct table access.
+  const { data: businessId, error: recordError } = await supabase.rpc(
+    "get_business_id_for_record",
+    { p_record_id: classifiedRecordId },
+  );
   if (recordError) {
     return { ok: false, error: `Record lookup failed: ${recordError.message}` };
   }
-  if (!record || !record.business_id) {
+  if (!businessId) {
     return {
       ok: false,
       error: "Classified record not accessible or has no parent business.",
@@ -181,7 +179,7 @@ export async function logTouch(
     .from("customer_license_touch")
     .insert({
       customer_id: customerId,
-      business_id: record.business_id,
+      business_id: businessId,
       classified_record_id: classifiedRecordId,
       kind,
       payload: detail ? { detail } : {},
@@ -198,7 +196,7 @@ export async function logTouch(
     .upsert(
       {
         customer_id: customerId,
-        business_id: record.business_id,
+        business_id: businessId,
         last_touched_at: now,
         last_touch_kind: kind,
       },
