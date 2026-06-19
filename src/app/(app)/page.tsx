@@ -10,7 +10,12 @@ import { TodayPanel } from "@/components/dashboard/disposition/today-panel";
 import { Feed } from "@/components/dashboard/feed";
 import { WorklistLayout, WorklistRail } from "@/components/dashboard/worklist-layout";
 import { getStatusCounts } from "@/lib/disposition/actions";
-import { getDispositionFunnel } from "@/lib/disposition/insights.queries";
+import {
+  getActivityLast30Days,
+  getDispositionFunnel,
+  getWinRateBySignal,
+} from "@/lib/disposition/insights.queries";
+import { Insights } from "@/components/dashboard/disposition";
 import {
   getDueFollowUpsForToday,
   getNewHighPriority,
@@ -123,6 +128,8 @@ export default async function DashboardPage({
     newHighPriorityResult,
     statusCountsResult,
     funnelResult,
+    winRateResult,
+    activityResult,
   ] = await Promise.allSettled([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
@@ -134,6 +141,8 @@ export default async function DashboardPage({
     getNewHighPriority(),
     getStatusCounts(),
     getDispositionFunnel(),
+    getWinRateBySignal(),
+    getActivityLast30Days(),
   ]);
 
   const DEFAULT_EXPORT_STATUS: ExportStatus = {
@@ -172,6 +181,10 @@ export default async function DashboardPage({
     statusCountsResult.status === "fulfilled" ? statusCountsResult.value : null;
   const funnel =
     funnelResult.status === "fulfilled" ? funnelResult.value : null;
+  const winRate =
+    winRateResult.status === "fulfilled" ? winRateResult.value : [];
+  const activity =
+    activityResult.status === "fulfilled" ? activityResult.value : [];
 
   // StatusTabs counts — degrade gracefully when statusCounts / funnel fail.
   const explicitDispositionedSum = statusCounts
@@ -240,6 +253,11 @@ export default async function DashboardPage({
                 ) : (
                   <SectionDegraded message="Today's panel is temporarily unavailable" />
                 )
+              }
+              insights={
+                funnel !== null ? (
+                  <Insights funnel={funnel} winRate={winRate} activity={activity} />
+                ) : null
               }
             />
           }
