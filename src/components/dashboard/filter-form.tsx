@@ -109,6 +109,13 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
     setZipDraft(current.zip);
   }, [current.zip]);
 
+  // States multi-select: controlled so the highlighted selection persists
+  // visually after Apply (defaultValue only runs at mount; value tracks state).
+  const statesKey = current.states.join(",");
+  const [selectedStates, setSelectedStates] = useState<string[]>(current.states);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setSelectedStates(current.states); }, [statesKey]);
+
   function applyFromForm(formData: FormData) {
     const states = (formData.getAll("states") as string[]).filter(Boolean);
     const types = (formData.getAll("types") as string[]).filter(Boolean);
@@ -172,7 +179,12 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
             id="states"
             name="states"
             multiple
-            defaultValue={current.states}
+            value={selectedStates}
+            onChange={(e) =>
+              setSelectedStates(
+                Array.from(e.target.selectedOptions, (o) => o.value),
+              )
+            }
             disabled={pending}
             className={multiSelectClassName()}
             size={Math.min(accessibleStateCodes.length, 6)}

@@ -274,6 +274,43 @@ export async function rpcFetchDashboardPage(args: {
 }
 
 // ---------------------------------------------------------------------------
+// Public: rpcFetchUncontactedCount
+// ---------------------------------------------------------------------------
+
+/**
+ * Count of license records that have no disposition row yet (uncontacted),
+ * using the same filter axes as rpcFetchDashboardPage. Both "All" and
+ * "Uncontacted" counts now measure RECORDS (COUNT(*)) so the numbers are
+ * directly comparable and the delta is legible.
+ */
+export async function rpcFetchUncontactedCount(
+  filters: FilterState,
+): Promise<number | null> {
+  const stateIdsResult = await resolveStateIds(filters.states);
+  if (stateIdsResult === "empty_filter") return 0;
+  const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
+
+  const filterParams = buildFilterParams(filters);
+  filterParams.p_state_ids = stateIds;
+  filterParams.p_disposition_status = "none"; // always count uncontacted regardless of active tab
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_feed_count", {
+    ...filterParams,
+    p_limit: undefined,
+    p_offset: undefined,
+    p_sort: undefined,
+    p_lead_type: undefined,
+  });
+
+  if (error) {
+    console.error("[rpcFetchUncontactedCount]", error);
+    return null;
+  }
+  return typeof data === "number" ? data : null;
+}
+
+// ---------------------------------------------------------------------------
 // Public: rpcFetchAllRecordsForExport
 // ---------------------------------------------------------------------------
 

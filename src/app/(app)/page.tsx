@@ -20,17 +20,19 @@ import {
   getDueFollowUpsForToday,
   getNewHighPriority,
 } from "@/lib/disposition/today.queries";
-import { parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
+import { hasActiveFilters, parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
 import {
   fetchAccessibleStateCodes,
   fetchCustomerContext,
   fetchDashboardPage,
+  fetchUncontactedCount,
   fetchDataSourceHealthMap,
   fetchExportStatus,
   fetchSavedFilters,
   type ExportStatus,
   PAID_EXPORT_MAX_ROWS,
 } from "@/lib/dashboard/queries";
+import { ActiveFilterChips } from "@/components/dashboard/active-filter-chips";
 import { QuotaExceededError } from "@/lib/rpc/errors";
 import { createClient } from "@/lib/supabase/server";
 
@@ -130,6 +132,7 @@ export default async function DashboardPage({
     funnelResult,
     winRateResult,
     activityResult,
+    uncontactedCountResult,
   ] = await Promise.allSettled([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
@@ -143,6 +146,7 @@ export default async function DashboardPage({
     getDispositionFunnel(),
     getWinRateBySignal(),
     getActivityLast30Days(),
+    fetchUncontactedCount(filters),
   ]);
 
   const DEFAULT_EXPORT_STATUS: ExportStatus = {
@@ -185,6 +189,10 @@ export default async function DashboardPage({
     winRateResult.status === "fulfilled" ? winRateResult.value : [];
   const activity =
     activityResult.status === "fulfilled" ? activityResult.value : [];
+  const uncontactedCount =
+    uncontactedCountResult.status === "fulfilled"
+      ? uncontactedCountResult.value
+      : null;
 
   // StatusTabs counts — degrade gracefully when statusCounts / funnel fail.
   const explicitDispositionedSum = statusCounts
@@ -198,10 +206,12 @@ export default async function DashboardPage({
     all: page?.totalCount ?? undefined,
     ...(statusCounts
       ? {
-          uncontacted: Math.max(
-            0,
-            (funnel?.surfaced ?? 0) - explicitDispositionedSum,
-          ),
+          // Prefer the RPC record-count (same unit as "All") for direct comparability.
+          // Fall back to funnel.surfaced - disposed (business count) if RPC unavailable.
+          uncontacted:
+            uncontactedCount !== null
+              ? uncontactedCount
+              : Math.max(0, (funnel?.surfaced ?? 0) - explicitDispositionedSum),
           saved: statusCounts.saved,
           working: statusCounts.working,
           won: statusCounts.won,
@@ -238,6 +248,16 @@ export default async function DashboardPage({
               {/* Desktop search — hidden on mobile; MobileWorklistControls renders its own. */}
               <div className="hidden lg:block">
                 <WorklistSearchBar filters={filters} />
+              </div>
+              {/* Desktop active-filter scope — shows chips when filters are applied,
+                  fallback text when none so the rep always knows what scope is live. */}
+              <div className="hidden lg:flex lg:items-center">
+                <ActiveFilterChips filters={filters} />
+                {!hasActiveFilters(filters) && (
+                  <p className="text-[11px] leading-none text-foreground-subtle">
+                    Viewing all {accessibleStateCodes.length} accessible states
+                  </p>
+                )}
               </div>
               <DispositionTabsBar
                 active={filters.dispositionTab}
