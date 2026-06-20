@@ -29,8 +29,8 @@ export function NavTabs() {
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               active
-                ? "bg-accent-tint text-primary"
-                : "text-foreground-2 hover:bg-muted hover:text-foreground",
+                ? "bg-accent-tint text-primary font-semibold"
+                : "text-foreground-muted hover:bg-surface-2 hover:text-foreground",
             )}
             aria-current={active ? "page" : undefined}
           >

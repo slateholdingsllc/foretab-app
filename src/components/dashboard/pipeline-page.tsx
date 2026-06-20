@@ -56,7 +56,7 @@ export function PipelinePage({
       {/* Full-width 3-up Insights grid.
           <Insights> is grid-cols-1 md:grid-cols-3 — at full viewport width
           (no sidebar) the three panels get genuine room. */}
-      <Insights funnel={funnel} winRate={winRate} activity={activity} />
+      <Insights funnel={funnel} winRate={winRate} activity={activity} className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.5fr_1fr_1.2fr]" />
     </div>
   );
 }
@@ -70,7 +70,7 @@ function KpiTile({
 }) {
   return (
     <div className="rounded-xl border border-border bg-card px-3.5 py-3">
-      <div className="font-mono text-[9.5px] uppercase tracking-[0.05em] text-muted-foreground">
+      <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
         {label}
       </div>
       <div className="mt-0.5 text-[27px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">

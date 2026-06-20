@@ -101,7 +101,7 @@ export function CockpitBand({
           md:grid-cols-3 lays the funnel / win-rate / activity out
           horizontally with real room (the whole point of the band). No new
           prop needed — width does the work. */}
-      <Insights funnel={funnel} winRate={winRate} activity={activity} />
+      <Insights funnel={funnel} winRate={winRate} activity={activity} className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.5fr_1fr_1.2fr]" />
     </section>
   );
 }
@@ -117,7 +117,7 @@ function Kpi({
 }) {
   return (
     <div className="rounded-xl border border-border bg-card px-3.5 py-3">
-      <div className="font-mono text-[9.5px] uppercase tracking-[0.05em] text-muted-foreground">
+      <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
         {label}
       </div>
       <div className="mt-0.5 text-[27px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
@@ -126,7 +126,7 @@ function Kpi({
       {delta ? (
         <div
           className={cn(
-            "mt-1 font-mono text-[10px]",
+            "mt-1 font-mono text-[11px]",
             delta.dir === "up" ? "text-success" : "text-destructive",
           )}
         >
