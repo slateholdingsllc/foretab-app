@@ -95,7 +95,7 @@ function Tab({
       {typeof count === "number" ? (
         <span
           className={cn(
-            "rounded-full px-1.5 py-px font-mono text-[10px] tracking-[0.04em]",
+            "rounded-full px-1.5 py-px font-mono text-[11px] tracking-[0.04em]",
             active ? "bg-surface-2 text-foreground-2" : "bg-surface-3 text-foreground-muted",
             muted && "bg-transparent",
           )}

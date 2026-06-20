@@ -16,13 +16,15 @@ export function Insights({
   funnel,
   winRate,
   activity,
+  className,
 }: {
   funnel: DispositionFunnelData;
   winRate: SignalWinRateRow[];
   activity: ActivityDay[];
+  className?: string;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
+    <div className={className ?? "grid grid-cols-1 gap-3.5 md:grid-cols-3"}>
       <Card title="Pipeline funnel" sub="Distinct businesses">
         <Funnel data={funnel} />
       </Card>
@@ -41,7 +43,7 @@ function Card({ title, sub, children }: { title: string; sub: string; children: 
     <section className="flex flex-col gap-3.5 rounded-lg border border-border bg-card p-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-sm font-medium tracking-[-0.01em] text-foreground">{title}</span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-foreground-muted">{sub}</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-foreground-muted">{sub}</span>
       </header>
       {children}
     </section>
@@ -124,11 +126,11 @@ function Activity({ days }: { days: ActivityDay[] }) {
           );
         })}
       </div>
-      <div className="flex justify-between font-mono text-[9px] uppercase tracking-[0.06em] text-foreground-subtle">
+      <div className="flex justify-between font-mono text-[11px] uppercase tracking-[0.06em] text-foreground-subtle">
         <span>{days[0]?.date ?? ""}</span>
         <span>{days[days.length - 1]?.date ?? ""}</span>
       </div>
-      <div className="flex gap-3.5 font-mono text-[10px] tracking-[0.04em] text-foreground-muted">
+      <div className="flex gap-3.5 font-mono text-[11px] tracking-[0.04em] text-foreground-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-[9px] w-[9px] rounded-sm bg-accent" />Peak day
         </span>
