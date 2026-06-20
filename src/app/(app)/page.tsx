@@ -15,7 +15,6 @@ import {
   getDispositionFunnel,
   getWinRateBySignal,
 } from "@/lib/disposition/insights.queries";
-import { Insights } from "@/components/dashboard/disposition";
 import {
   getDueFollowUpsForToday,
   getNewHighPriority,
@@ -33,6 +32,7 @@ import {
   PAID_EXPORT_MAX_ROWS,
 } from "@/lib/dashboard/queries";
 import { ActiveFilterChips } from "@/components/dashboard/active-filter-chips";
+import { CockpitBand } from "@/components/dashboard/cockpit-band";
 import { QuotaExceededError } from "@/lib/rpc/errors";
 import { createClient } from "@/lib/supabase/server";
 
@@ -221,6 +221,29 @@ export default async function DashboardPage({
       : {}),
   };
 
+  // ── Cockpit band derived values ──────────────────────────────────────────
+  // First name: take the local-part before @, split on . / _ / +, capitalize.
+  const emailLocal = context.email?.split("@")[0] ?? "";
+  const firstNameRaw = emailLocal.split(/[._+]/)[0] ?? "";
+  const greetingName =
+    firstNameRaw.length >= 2
+      ? firstNameRaw.charAt(0).toUpperCase() + firstNameRaw.slice(1).toLowerCase()
+      : null;
+
+  // Short date label: "Fri · Jun 20" — uppercased by CSS in the component.
+  const _now = new Date();
+  const dateLabel = [
+    _now.toLocaleDateString("en-US", { weekday: "short" }),
+    "·",
+    _now.toLocaleDateString("en-US", { month: "short" }),
+    _now.getDate(),
+  ].join(" ");
+
+  // Win rate: won / (won + lost). 0% when no closed deals yet.
+  const _won = statusCounts?.won ?? 0;
+  const _lost = statusCounts?.lost ?? 0;
+  const winRatePct = _won + _lost > 0 ? Math.round((_won / (_won + _lost)) * 100) : 0;
+
   return (
     <AppShell
       email={context.email}
@@ -235,6 +258,27 @@ export default async function DashboardPage({
       {/* DensityProvider wraps the worklist so client components below can
           call useDensity() for the compact/comfortable toggle. */}
       <DensityProvider>
+        {/* Cockpit band — full-width pipeline health strip above the worklist.
+            Guarded: only renders the charts when funnel is available; falls
+            back to a section-degraded so the layout doesn't collapse. */}
+        {funnel !== null ? (
+          <CockpitBand
+            greetingName={greetingName}
+            dueTodayCount={dueFollowUps?.length}
+            dateLabel={dateLabel}
+            kpis={{
+              inPipeline: funnel.surfaced,
+              working: statusCounts?.working ?? 0,
+              won30d: statusCounts?.won ?? 0,
+              winRatePct,
+            }}
+            funnel={funnel}
+            winRate={winRate}
+            activity={activity}
+          />
+        ) : (
+          <SectionDegraded message="Pipeline insights temporarily unavailable" />
+        )}
         <WorklistLayout
           className="h-full"
           tabs={
@@ -273,11 +317,6 @@ export default async function DashboardPage({
                 ) : (
                   <SectionDegraded message="Today's panel is temporarily unavailable" />
                 )
-              }
-              insights={
-                funnel !== null ? (
-                  <Insights funnel={funnel} winRate={winRate} activity={activity} />
-                ) : null
               }
             />
           }

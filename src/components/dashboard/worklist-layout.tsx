@@ -49,7 +49,7 @@ export function WorklistLayout({
       className={cn(
         // Desktop: two columns — center records (1fr) + fixed rail.
         // Mobile: single column; the rail moves below via source order.
-        "grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]",
+        "grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]",
         className,
       )}
     >
