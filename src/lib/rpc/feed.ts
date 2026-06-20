@@ -159,7 +159,7 @@ function buildFilterParams(filters: FilterState) {
     p_business_archetype:  filters.businessArchetypes.length > 0 ? filters.businessArchetypes : null,
     p_days_window:         filters.daysWindow ?? null,
     p_date_from:           null,
-    p_new_this_week:       filters.newThisWeek ? true : null,
+    p_new_this_week:       filters.newThisWeek ? true : false,
     p_search:              filters.search.trim() || null,
     p_city:                filters.city.trim() || null,
     p_zip:                 filters.zip.trim() || null,
