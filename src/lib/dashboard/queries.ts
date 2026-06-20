@@ -3,7 +3,7 @@ import type {
   DispositionStatus,
 } from "@/lib/disposition/types";
 import { createClient } from "@/lib/supabase/server";
-import { rpcFetchAllRecordsForExport, rpcFetchDashboardPage } from "@/lib/rpc/feed";
+import { rpcFetchAllRecordsForExport, rpcFetchDashboardPage, rpcFetchUncontactedCount } from "@/lib/rpc/feed";
 import { rpcEnforced } from "@/lib/rpc/flag";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
@@ -96,6 +96,11 @@ async function fetchDispositionsByBusinessId(
  * once classified_records grows past hundreds of thousands of rows.
  * TODO: cache this in customer_states.last_known_count or a derived view.
  */
+export async function fetchUncontactedCount(filters: FilterState): Promise<number | null> {
+  if (!rpcEnforced()) return null;
+  return rpcFetchUncontactedCount(filters);
+}
+
 export async function fetchDashboardPage(args: {
   filters: FilterState;
   cursor: string | null;
