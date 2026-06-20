@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { SavedFilter } from "@/lib/dashboard/saved-filters";
 import type { FilterState, StateHealthMap } from "@/lib/dashboard/types";
 import { DataHealthIndicator } from "./data-health-indicator";
+import { NavTabs } from "./nav-tabs";
 import { SavedFiltersMenu } from "./saved-filters-menu";
 import { TrialBadge } from "./trial-badge";
 
@@ -57,6 +58,8 @@ export function TopBar({
             foretab
           </span>
         </Link>
+
+        <NavTabs />
 
         <div className="flex flex-1 items-center justify-end gap-3">
           {healthMap ? (

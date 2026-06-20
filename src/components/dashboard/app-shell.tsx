@@ -26,6 +26,7 @@ export function AppShell({
   currentFilters,
   healthMap,
   viewport = "scroll",
+  hideSidebar = false,
   children,
 }: {
   email: string | null;
@@ -41,6 +42,8 @@ export function AppShell({
    * "full"   — viewport-height-locked (worklist); each column scrolls independently.
    */
   viewport?: "scroll" | "full";
+  /** When true the filter sidebar is suppressed — use on analytics pages (e.g. Pipeline). */
+  hideSidebar?: boolean;
   children: React.ReactNode;
 }) {
   const full = viewport === "full";
@@ -63,10 +66,12 @@ export function AppShell({
         healthMap={healthMap}
       />
       <div className={cn("flex", full && "min-h-0 flex-1")}>
-        <Sidebar
-          accessibleStateCodes={accessibleStateCodes}
-          healthMap={healthMap ?? new Map()}
-        />
+        {!hideSidebar && (
+          <Sidebar
+            accessibleStateCodes={accessibleStateCodes}
+            healthMap={healthMap ?? new Map()}
+          />
+        )}
         <main
           className={cn(
             "min-w-0 flex-1",
