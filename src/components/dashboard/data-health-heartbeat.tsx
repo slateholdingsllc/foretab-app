@@ -145,7 +145,7 @@ export function DataHealthHeartbeat({
         >
           {pulse}
           {degraded ? (
-            <span className={cn("font-mono text-[11px] font-medium", tone.text)}>
+            <span className={cn("font-mono text-[12px] font-medium", tone.text)}>
               {count}
             </span>
           ) : null}
@@ -170,7 +170,7 @@ export function DataHealthHeartbeat({
         )}
       >
         {pulse}
-        <span className={cn("font-mono text-[11px] font-medium tracking-[0.02em]", tone.text)}>
+        <span className={cn("font-mono text-[12px] font-medium tracking-[0.02em]", tone.text)}>
           {label}
         </span>
         {degraded ? (
@@ -221,7 +221,7 @@ function HealthPopover({
               : "Data refresh is behind schedule"
             : "All states are current"}
         </p>
-        <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+        <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
           {degraded
             ? `${entries.length} of ${totalStates} states affected`
             : `${totalStates} states · refreshed on schedule`}
@@ -245,7 +245,7 @@ function HealthPopover({
                 {e.code}
                 <span className="text-muted-foreground">{e.name}</span>
               </span>
-              <span className="font-mono text-[11px] text-muted-foreground">
+              <span className="font-mono text-[12px] text-muted-foreground">
                 {relAge(e.staleDays)}
               </span>
             </li>

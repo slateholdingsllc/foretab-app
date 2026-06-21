@@ -10,6 +10,7 @@ import {
   hasActiveFilters,
   serializeFiltersToSearchParams,
 } from "@/lib/dashboard/filters";
+import { SignalMethodologyButton } from "./signal-methodology-button";
 import {
   createSavedFilter,
   deleteSavedFilter,
@@ -213,7 +214,7 @@ export function MobileFilterSheet({
               </ChipGroup>
 
               <div className="border-b border-border py-3.5">
-                <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                <div className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                   City
                 </div>
                 <CityTypeahead
@@ -225,7 +226,7 @@ export function MobileFilterSheet({
               </div>
 
               <div className="border-b border-border py-3.5">
-                <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                <div className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                   ZIP code
                 </div>
                 <input
@@ -244,7 +245,7 @@ export function MobileFilterSheet({
                 options={DAYS_OPTIONS}
               />
 
-              <ChipGroup label="Signal strength">
+              <ChipGroup label="Signal strength" action={<SignalMethodologyButton />}>
                 {SIGNAL_OPTIONS.map((o) => (
                   <Chip key={o.value} on={signals.includes(o.value)} onClick={() => setSignals(toggle(signals, o.value))}>
                     {o.label}
@@ -322,11 +323,20 @@ export function MobileFilterSheet({
 
 /* ── sub-components ── */
 
-function ChipGroup({ label, children }: { label: string; children: React.ReactNode }) {
+function ChipGroup({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="border-b border-border py-3.5">
-      <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+      <div className="mb-2.5 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         {label}
+        {action}
       </div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
@@ -372,7 +382,7 @@ function SelectGroup({
 }) {
   return (
     <div className="border-b border-border py-3.5">
-      <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+      <div className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         {label}
       </div>
       <select
@@ -429,7 +439,7 @@ function ViewsPanel({
     <div className="overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1">
       <form action={onSave} className="flex flex-col gap-2 border-b border-border py-3.5">
         <input type="hidden" name="filter_config_json" value={currentFiltersJson} />
-        <label className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground" htmlFor="m-saved-filter-name">
+        <label className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground" htmlFor="m-saved-filter-name">
           Save current view as
         </label>
         <div className="flex gap-2">
@@ -470,7 +480,7 @@ function ViewsPanel({
                   >
                     {filter.name}
                     {filter.is_default ? (
-                      <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground">
+                      <span className="ml-2 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
                         default
                       </span>
                     ) : null}

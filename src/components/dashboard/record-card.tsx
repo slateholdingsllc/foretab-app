@@ -96,7 +96,7 @@ export function RecordCard({
               {primaryName}
             </h3>
             {dba && dba !== primaryName ? (
-              <p className="truncate font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+              <p className="truncate font-mono text-[12px] uppercase tracking-[0.04em] text-muted-foreground">
                 DBA · {dba}
               </p>
             ) : null}
@@ -122,7 +122,7 @@ export function RecordCard({
             </Badge>
           ) : null}
           {record.lead_type === "event" ? (
-            <Badge variant="outline" className="border-amber-500/60 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+            <Badge variant="outline" className="border-amber/40 bg-amber-tint text-amber">
               Event
             </Badge>
           ) : null}
@@ -151,7 +151,7 @@ export function RecordCard({
             : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-soft pt-3 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-soft pt-3 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
           <span>{sourceLabel}</span>
           <FreshnessBadge
             refreshFrequency={health?.refresh_frequency ?? null}

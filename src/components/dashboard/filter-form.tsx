@@ -20,6 +20,7 @@ import type {
   SignalStrength,
 } from "@/lib/dashboard/types";
 import { CityTypeahead } from "./city-typeahead";
+import { SignalMethodologyButton } from "./signal-methodology-button";
 
 /**
  * Filter form. URL search params are the source of truth — form
@@ -216,7 +217,10 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="signal">Signal strength</Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="signal">Signal strength</Label>
+          <SignalMethodologyButton />
+        </div>
         <select
           id="signal"
           name="signal"
