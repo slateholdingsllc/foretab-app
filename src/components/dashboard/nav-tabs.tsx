@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { label: "Worklist", href: "/" },
-  { label: "Pipeline", href: "/pipeline" },
+  { label: "Worklist", href: "/", tourId: undefined },
+  { label: "Pipeline", href: "/pipeline", tourId: "nav-pipeline" },
 ] as const;
 
 /**
@@ -26,6 +26,7 @@ export function NavTabs() {
           <Link
             key={t.href}
             href={t.href}
+            data-tour-id={t.tourId}
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               active
