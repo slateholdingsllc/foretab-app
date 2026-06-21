@@ -32,7 +32,7 @@ export function TodayPanel({
     .replace(",", " ·");
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
+    <section className="overflow-hidden rounded-lg border border-border bg-card" data-tour-id="today-panel">
       <header className="flex items-center gap-2.5 border-b border-border px-[18px] py-3.5">
         <span className="h-[7px] w-[7px] rounded-full bg-accent shadow-[0_0_0_3px_var(--color-accent-tint)]" />
         <span className="text-sm font-medium tracking-[-0.01em] text-foreground">Today</span>

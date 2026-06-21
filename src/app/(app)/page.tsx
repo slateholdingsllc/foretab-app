@@ -11,11 +11,6 @@ import { Feed } from "@/components/dashboard/feed";
 import { WorklistLayout, WorklistRail } from "@/components/dashboard/worklist-layout";
 import { getStatusCounts } from "@/lib/disposition/actions";
 import {
-  getActivityLast30Days,
-  getDispositionFunnel,
-  getWinRateBySignal,
-} from "@/lib/disposition/insights.queries";
-import {
   getDueFollowUpsForToday,
   getNewHighPriority,
 } from "@/lib/disposition/today.queries";
@@ -32,7 +27,7 @@ import {
   PAID_EXPORT_MAX_ROWS,
 } from "@/lib/dashboard/queries";
 import { ActiveFilterChips } from "@/components/dashboard/active-filter-chips";
-import { CockpitBand } from "@/components/dashboard/cockpit-band";
+import { GuidedTour } from "@/components/dashboard/guided-tour";
 import { QuotaExceededError } from "@/lib/rpc/errors";
 import { createClient } from "@/lib/supabase/server";
 
@@ -129,9 +124,6 @@ export default async function DashboardPage({
     dueFollowUpsResult,
     newHighPriorityResult,
     statusCountsResult,
-    funnelResult,
-    winRateResult,
-    activityResult,
     uncontactedCountResult,
   ] = await Promise.allSettled([
     fetchCustomerContext(),
@@ -143,9 +135,6 @@ export default async function DashboardPage({
     getDueFollowUpsForToday(),
     getNewHighPriority(),
     getStatusCounts(),
-    getDispositionFunnel(),
-    getWinRateBySignal(),
-    getActivityLast30Days(),
     fetchUncontactedCount(filters),
   ]);
 
@@ -183,35 +172,17 @@ export default async function DashboardPage({
       : null;
   const statusCounts =
     statusCountsResult.status === "fulfilled" ? statusCountsResult.value : null;
-  const funnel =
-    funnelResult.status === "fulfilled" ? funnelResult.value : null;
-  const winRate =
-    winRateResult.status === "fulfilled" ? winRateResult.value : [];
-  const activity =
-    activityResult.status === "fulfilled" ? activityResult.value : [];
   const uncontactedCount =
     uncontactedCountResult.status === "fulfilled"
       ? uncontactedCountResult.value
       : null;
 
-  // StatusTabs counts — degrade gracefully when statusCounts / funnel fail.
-  const explicitDispositionedSum = statusCounts
-    ? statusCounts.saved +
-      statusCounts.working +
-      statusCounts.won +
-      statusCounts.lost +
-      statusCounts.skip
-    : 0;
+  // StatusTabs counts — degrade gracefully when statusCounts fails.
   const tabCounts: Partial<Record<StatusTabValue, number>> = {
     all: page?.totalCount ?? undefined,
     ...(statusCounts
       ? {
-          // Prefer the RPC record-count (same unit as "All") for direct comparability.
-          // Fall back to funnel.surfaced - disposed (business count) if RPC unavailable.
-          uncontacted:
-            uncontactedCount !== null
-              ? uncontactedCount
-              : Math.max(0, (funnel?.surfaced ?? 0) - explicitDispositionedSum),
+          uncontacted: uncontactedCount ?? undefined,
           saved: statusCounts.saved,
           working: statusCounts.working,
           won: statusCounts.won,
@@ -220,29 +191,6 @@ export default async function DashboardPage({
         }
       : {}),
   };
-
-  // ── Cockpit band derived values ──────────────────────────────────────────
-  // First name: take the local-part before @, split on . / _ / +, capitalize.
-  const emailLocal = context.email?.split("@")[0] ?? "";
-  const firstNameRaw = emailLocal.split(/[._+]/)[0] ?? "";
-  const greetingName =
-    firstNameRaw.length >= 2
-      ? firstNameRaw.charAt(0).toUpperCase() + firstNameRaw.slice(1).toLowerCase()
-      : null;
-
-  // Short date label: "Fri · Jun 20" — uppercased by CSS in the component.
-  const _now = new Date();
-  const dateLabel = [
-    _now.toLocaleDateString("en-US", { weekday: "short" }),
-    "·",
-    _now.toLocaleDateString("en-US", { month: "short" }),
-    _now.getDate(),
-  ].join(" ");
-
-  // Win rate: won / (won + lost). 0% when no closed deals yet.
-  const _won = statusCounts?.won ?? 0;
-  const _lost = statusCounts?.lost ?? 0;
-  const winRatePct = _won + _lost > 0 ? Math.round((_won / (_won + _lost)) * 100) : 0;
 
   return (
     <AppShell
@@ -255,30 +203,10 @@ export default async function DashboardPage({
       healthMap={healthMap}
       viewport="full"
     >
+      <GuidedTour />
       {/* DensityProvider wraps the worklist so client components below can
           call useDensity() for the compact/comfortable toggle. */}
       <DensityProvider>
-        {/* Cockpit band — full-width pipeline health strip above the worklist.
-            Guarded: only renders the charts when funnel is available; falls
-            back to a section-degraded so the layout doesn't collapse. */}
-        {funnel !== null ? (
-          <CockpitBand
-            greetingName={greetingName}
-            dueTodayCount={dueFollowUps?.length}
-            dateLabel={dateLabel}
-            kpis={{
-              inPipeline: funnel.surfaced,
-              working: statusCounts?.working ?? 0,
-              won30d: statusCounts?.won ?? 0,
-              winRatePct,
-            }}
-            funnel={funnel}
-            winRate={winRate}
-            activity={activity}
-          />
-        ) : (
-          <SectionDegraded message="Pipeline insights temporarily unavailable" />
-        )}
         <WorklistLayout
           className="h-full"
           tabs={

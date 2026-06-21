@@ -93,6 +93,7 @@ export function TopBar({
 
           <Link
             href="/account"
+            data-tour-id="account-menu"
             className="text-sm font-medium tracking-[-0.005em] text-foreground-2 underline-offset-4 hover:text-foreground hover:underline"
           >
             Account

@@ -56,6 +56,7 @@ export function StatusPill({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        data-tour-id="status-pill"
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full border border-border bg-card py-1 pl-2.5 pr-1.5",
           "font-mono text-[10.5px] font-medium uppercase tracking-[0.05em] text-foreground",
