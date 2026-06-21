@@ -96,7 +96,7 @@ export function RecordCard({
               {primaryName}
             </h3>
             {dba && dba !== primaryName ? (
-              <p className="truncate font-mono text-[12px] uppercase tracking-[0.04em] text-muted-foreground">
+              <p className="truncate font-mono text-[13px] uppercase tracking-[0.03em] text-muted-foreground">
                 DBA · {dba}
               </p>
             ) : null}
@@ -151,7 +151,7 @@ export function RecordCard({
             : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-soft pt-3 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-soft pt-3 font-mono text-[13px] uppercase tracking-[0.04em] text-muted-foreground">
           <span>{sourceLabel}</span>
           <FreshnessBadge
             refreshFrequency={health?.refresh_frequency ?? null}
