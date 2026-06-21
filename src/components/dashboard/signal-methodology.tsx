@@ -1,67 +1,74 @@
-import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { SignalIcon, SignalTier } from "@/components/dashboard/disposition/signal-tier";
-import { TIER_DOCS } from "@/lib/dashboard/methodology-content";
+import { SignalIcon } from "@/components/dashboard/disposition/signal-tier";
+import {
+  METHODOLOGY_FOOTNOTE,
+  METHODOLOGY_KICKER,
+  METHODOLOGY_LEDE,
+  METHODOLOGY_TIERS,
+  METHODOLOGY_TITLE,
+} from "@/lib/dashboard/methodology-content";
 
-export function SignalMethodology() {
+/**
+ * SignalMethodology — the one-screen "How Foretab signals work" explainer.
+ *
+ * The transparency surface: the inline signal_strength_reason answers "why is
+ * THIS license New?"; this answers "what does New even mean, and can I trust
+ * it?". Reuses the shipped broadcast-node SignalIcon + tier language so it
+ * reads identically to every signal badge in the app.
+ *
+ * Mount anywhere — it's self-contained card content:
+ *   - as the /methodology route body (full page)
+ *   - inside a modal/popover off the signal legend (`compact` trims the lede)
+ *
+ * Theme: semantic tokens only — flips via [data-theme]. No `dark:` variants.
+ */
+export function SignalMethodology({
+  compact = false,
+  className,
+}: {
+  /** Trims the hero lede + footnote for modal use. */
+  compact?: boolean;
+  className?: string;
+}) {
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-5 py-8 lg:px-8 lg:py-10">
-      <div className="space-y-2">
-        <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-primary">
-          How Foretab signals work
+    <div className={cn("overflow-hidden rounded-xl border border-border bg-card", className)}>
+      <div className="border-b border-border px-6 py-6 sm:px-7">
+        <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.1em] text-primary">
+          {METHODOLOGY_KICKER}
         </div>
-        <h1 className="text-[26px] font-bold leading-tight tracking-[-0.025em] text-foreground">
-          Every license gets a signal tier.
+        <h1 className="text-[clamp(20px,2.4vw,26px)] font-semibold leading-tight tracking-[-0.025em] text-foreground">
+          {METHODOLOGY_TITLE}
         </h1>
-        <p className="text-base leading-relaxed text-foreground-2">
-          We read each license&apos;s public filing history and classify how actionable it is right
-          now. Three tiers, one rule each — and every record shows its own reason inline.
-        </p>
+        {!compact ? (
+          <p className="mt-2.5 max-w-prose text-[15px] leading-relaxed text-foreground-2">
+            {METHODOLOGY_LEDE}
+          </p>
+        ) : null}
       </div>
 
-      <div className="space-y-3.5">
-        {TIER_DOCS.map((tier) => (
-          <div key={tier.signal} className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-3">
-                <SignalTier signal={tier.signal} />
-                <p className="text-sm leading-relaxed text-foreground-2">
-                  <span className="font-medium text-foreground">Rule: </span>
-                  {tier.rule}
-                </p>
-                <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-foreground-muted">
-                  {tier.salesContext}
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "shrink-0 rounded-lg p-3",
-                  tier.signal === "Dormant" ? "bg-surface-2" : "bg-accent-tint",
-                )}
-              >
-                <SignalIcon
-                  signal={tier.signal}
-                  className={cn(
-                    "h-6 w-6",
-                    tier.signal === "Dormant" ? "text-foreground-muted" : "text-primary",
-                  )}
-                />
-              </div>
+      <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-3">
+        {METHODOLOGY_TIERS.map((t) => (
+          <div key={t.tier} className="bg-card px-5 py-5">
+            <div className="mb-2.5 flex items-center gap-2">
+              <SignalIcon signal={t.tier} className="h-4 w-4 text-primary" />
+              <span className="font-mono text-[12px] font-medium uppercase tracking-[0.05em] text-foreground">
+                {t.tier}
+              </span>
             </div>
+            <p className="text-[13px] leading-relaxed text-muted-foreground">{t.rule}</p>
+            <p className="mt-2.5 border-t border-border-soft pt-2.5 text-[13px] leading-relaxed text-foreground-2">
+              <span className="font-medium text-foreground">Why a rep acts —</span>{" "}
+              {t.act}
+            </p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-lg border border-border-soft bg-surface-2 px-4 py-3.5 text-sm leading-relaxed text-foreground-2">
-        Tiers come from official state filing records only — no scraping, no guesswork. Every record
-        carries its own one-line reason so you see the specific basis, not just the label.
-      </div>
-
-      <div className="pt-2">
-        <Link href="/" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-          ← Back to worklist
-        </Link>
-      </div>
+      {!compact ? (
+        <p className="px-6 py-5 text-[13px] leading-relaxed text-muted-foreground sm:px-7">
+          {METHODOLOGY_FOOTNOTE}
+        </p>
+      ) : null}
     </div>
   );
 }

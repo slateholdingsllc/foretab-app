@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -17,6 +17,7 @@ const TABS = [
  */
 export function NavTabs() {
   const pathname = usePathname();
+  const router = useRouter();
   return (
     <nav className="hidden items-center gap-0.5 sm:flex" aria-label="Main navigation">
       {TABS.map((t) => {
@@ -27,6 +28,8 @@ export function NavTabs() {
             key={t.href}
             href={t.href}
             data-tour-id={t.tourId}
+            onMouseEnter={() => router.prefetch(t.href)}
+            onFocus={() => router.prefetch(t.href)}
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               active

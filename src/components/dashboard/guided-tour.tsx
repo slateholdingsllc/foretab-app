@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { SignalMethodologyButton } from "./signal-methodology-button";
 import { TOUR_STEPS } from "./tour-steps";
 
 const STORAGE_KEY = "foretab_tour_v1";
@@ -136,6 +137,9 @@ export function GuidedTour({
           {step.title}
         </h4>
         <p className="text-sm leading-relaxed text-foreground-2">{step.body}</p>
+        {stepIndex === 1 ? (
+          <SignalMethodologyButton asLink className="mt-2" />
+        ) : null}
         <div className="mt-4 flex items-center gap-1.5">
           {TOUR_STEPS.map((_, i) => (
             <span

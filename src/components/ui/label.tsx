@@ -23,7 +23,7 @@ const labelVariants = cva(
         default:
           "text-sm font-medium leading-none tracking-[-0.005em] text-foreground",
         eyebrow:
-          "font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-foreground-muted",
+          "font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-foreground-muted",
       },
     },
     defaultVariants: { variant: "default" },

@@ -58,7 +58,7 @@ export function Badge({
     <span
       className={cn(
         // Geist Mono · uppercase · tracked — reads as machine output.
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium uppercase leading-snug tracking-[0.06em]",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] font-medium uppercase leading-snug tracking-[0.06em]",
         VARIANT_CLASSES[variant],
         className,
       )}

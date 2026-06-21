@@ -70,7 +70,7 @@ function KpiTile({
 }) {
   return (
     <div className="rounded-xl border border-border bg-card px-3.5 py-3">
-      <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+      <div className="font-mono text-[12px] uppercase tracking-[0.05em] text-muted-foreground">
         {label}
       </div>
       <div className="mt-0.5 text-[27px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
