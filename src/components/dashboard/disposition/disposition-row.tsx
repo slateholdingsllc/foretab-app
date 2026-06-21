@@ -60,7 +60,7 @@ export function DispositionRow({
       />
 
       {noteCount > 0 ? (
-        <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.04em] text-primary">
+        <span className="inline-flex items-center gap-1.5 font-mono text-[13px] uppercase tracking-[0.04em] text-primary">
           <NoteIcon />
           {noteCount} {noteCount === 1 ? "note" : "notes"}
         </span>
@@ -109,7 +109,7 @@ function FollowUpMeta({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.04em]",
+          "inline-flex items-center gap-1.5 font-mono text-[13px] uppercase tracking-[0.04em]",
           overdue
             ? "text-destructive"
             : today
@@ -128,7 +128,7 @@ function FollowUpMeta({
   }
   if (lastTouchedAt) {
     return (
-      <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.04em] text-foreground-muted">
+      <span className="inline-flex items-center gap-1.5 font-mono text-[13px] uppercase tracking-[0.04em] text-foreground-muted">
         <ClockIcon />
         {lastTouchKind ? `${lastTouchKind} ` : ""}
         {relativeDays(lastTouchedAt)}
@@ -136,7 +136,7 @@ function FollowUpMeta({
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.04em] text-foreground-muted">
+    <span className="inline-flex items-center gap-1.5 font-mono text-[13px] uppercase tracking-[0.04em] text-foreground-muted">
       <ClockIcon />
       No activity yet
     </span>
