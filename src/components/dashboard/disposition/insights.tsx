@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type {
   ActivityDay,
@@ -57,25 +58,34 @@ function Card({ title, sub, children }: { title: string; sub: string; children: 
 
 function Funnel({ data, workingCount }: { data: DispositionFunnelData; workingCount?: number }) {
   const max = Math.max(data.surfaced, 1);
-  const stages: { label: string; value: number; won?: boolean }[] = [
-    { label: "Surfaced", value: data.surfaced },
-    { label: "Saved", value: data.saved },
-    { label: "Working", value: workingCount ?? data.engaged },
-    { label: "Won", value: data.won, won: true },
+  const stages: { label: string; value: number; won?: boolean; href: string }[] = [
+    { label: "Surfaced", value: data.surfaced,                      href: "/" },
+    { label: "Saved",    value: data.saved,                         href: "/?tab=saved" },
+    { label: "Working",  value: workingCount ?? data.engaged,        href: "/?tab=working" },
+    { label: "Won",      value: data.won,       won: true,           href: "/?tab=won" },
   ];
   return (
     <div className="flex flex-col gap-1.5">
       {stages.map((s) => (
-        <div key={s.label} className="flex flex-col gap-1">
+        <Link
+          key={s.label}
+          href={s.href}
+          className="group flex flex-col gap-1 no-underline"
+        >
           <div className="flex items-baseline justify-between font-mono text-[10.5px] tracking-[0.04em]">
-            <span className="uppercase text-foreground-2">{s.label}</span>
+            <span className="uppercase text-foreground-2 transition-colors group-hover:text-foreground">
+              {s.label}
+            </span>
             <span className="font-medium text-foreground">{s.value}</span>
           </div>
           <div
-            className={cn("h-[22px] rounded-sm", s.won ? "bg-success" : "bg-accent")}
+            className={cn(
+              "h-[22px] rounded-sm transition-opacity group-hover:opacity-75",
+              s.won ? "bg-success" : "bg-accent",
+            )}
             style={{ width: `${Math.max(4, (s.value / max) * 100)}%` }}
           />
-        </div>
+        </Link>
       ))}
     </div>
   );
