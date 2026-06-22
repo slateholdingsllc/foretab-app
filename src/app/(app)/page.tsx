@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
 import { MobileWorklistControls } from "@/components/dashboard/mobile-worklist-controls";
@@ -231,10 +232,12 @@ export default async function DashboardPage({
                   </p>
                 )}
               </div>
-              <DispositionTabsBar
-                active={filters.dispositionTab}
-                counts={tabCounts}
-              />
+              <Suspense fallback={null}>
+                <DispositionTabsBar
+                  active={filters.dispositionTab}
+                  counts={tabCounts}
+                />
+              </Suspense>
             </>
           }
           rail={
