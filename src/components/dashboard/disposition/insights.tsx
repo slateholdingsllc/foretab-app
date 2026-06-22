@@ -16,19 +16,24 @@ export function Insights({
   funnel,
   winRate,
   activity,
+  workingCount,
   className,
 }: {
   funnel: DispositionFunnelData;
   winRate: SignalWinRateRow[];
   activity: ActivityDay[];
+  /** statusCounts.working — threads in from PipelinePage so the funnel label
+   *  matches the Worklist status pills exactly. Falls back to data.engaged
+   *  when not passed (e.g. cockpit-band context). */
+  workingCount?: number;
   className?: string;
 }) {
   return (
     <div className={className ?? "grid grid-cols-1 gap-3.5 md:grid-cols-3"}>
       <Card title="Pipeline funnel" sub="Distinct businesses">
-        <Funnel data={funnel} />
+        <Funnel data={funnel} workingCount={workingCount} />
       </Card>
-      <Card title="Win rate by signal" sub="SignalWinRateRow">
+      <Card title="Win rate by signal" sub="Won ÷ in scope · by tier">
         <WinRate rows={winRate} />
       </Card>
       <Card title="Activity" sub="Dispositions · 30 days">
@@ -50,12 +55,12 @@ function Card({ title, sub, children }: { title: string; sub: string; children: 
   );
 }
 
-function Funnel({ data }: { data: DispositionFunnelData }) {
+function Funnel({ data, workingCount }: { data: DispositionFunnelData; workingCount?: number }) {
   const max = Math.max(data.surfaced, 1);
   const stages: { label: string; value: number; won?: boolean }[] = [
     { label: "Surfaced", value: data.surfaced },
     { label: "Saved", value: data.saved },
-    { label: "Engaged", value: data.engaged },
+    { label: "Working", value: workingCount ?? data.engaged },
     { label: "Won", value: data.won, won: true },
   ];
   return (
