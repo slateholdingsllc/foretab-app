@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Label } from "@/components/ui/label";
 import type { StateHealthMap } from "@/lib/dashboard/types";
 import { FilterForm } from "./filter-form";
@@ -30,7 +31,9 @@ export function Sidebar({
         <div>
           <Label variant="eyebrow">Filter</Label>
           <div className="mt-3">
-            <FilterForm accessibleStateCodes={accessibleStateCodes} />
+            <Suspense fallback={null}>
+              <FilterForm accessibleStateCodes={accessibleStateCodes} />
+            </Suspense>
           </div>
         </div>
 

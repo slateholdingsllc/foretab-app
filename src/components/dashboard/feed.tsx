@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { hasActiveFilters, serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import type { ExportStatus } from "@/lib/dashboard/queries";
 import { getAttributionsForStates } from "@/lib/state-attributions";
@@ -74,7 +75,9 @@ export function Feed({
           health={healthMap.get(r.state_id) ?? null}
         />
       ))}
-      <CursorPagination nextCursor={page.nextCursor} />
+      <Suspense fallback={null}>
+        <CursorPagination nextCursor={page.nextCursor} />
+      </Suspense>
       <FeedFooter
         totalCount={page.totalCount}
         filters={filters}
