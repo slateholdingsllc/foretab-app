@@ -3,8 +3,8 @@ import type {
   ActivityDay,
   DispositionFunnelData,
   SignalWinRateRow,
+  DispositionStatus,
 } from "@/lib/disposition/types";
-import type { DispositionStatus } from "@/lib/disposition/types";
 
 /**
  * PipelinePage — full-page analytics layout for /pipeline.
@@ -17,6 +17,8 @@ import type { DispositionStatus } from "@/lib/disposition/types";
  * Data: reuses getDispositionFunnel / getWinRateBySignal /
  * getActivityLast30Days — no new queries.
  */
+const LOW_DATA_THRESHOLD = 5;
+
 export function PipelinePage({
   funnel,
   winRate,
@@ -32,6 +34,12 @@ export function PipelinePage({
   const lost = statusCounts?.lost ?? 0;
   const winRatePct =
     won + lost > 0 ? Math.round((won / (won + lost)) * 100) : 0;
+  const workingCount = statusCounts?.working ?? 0;
+
+  // funnel.saved = distinct businesses with any active disposition status
+  // (saved | working | won | lost). Below the threshold the derived rates
+  // (win %, by-signal breakdown) are too noisy to be useful.
+  const hasEnoughData = funnel.saved >= LOW_DATA_THRESHOLD;
 
   return (
     <div className="mx-auto max-w-screen-xl space-y-6 px-5 py-6 lg:px-8 lg:py-8">
@@ -48,15 +56,23 @@ export function PipelinePage({
       {/* KPI strip — 4 tiles, 2-up on mobile, 4-up on sm+ */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <KpiTile label="In pipeline" value={funnel.surfaced} />
-        <KpiTile label="Working" value={statusCounts?.working ?? 0} />
+        <KpiTile label="Working" value={workingCount} />
         <KpiTile label="Won · 30d" value={won} />
         <KpiTile label="Win rate" value={`${winRatePct}%`} />
       </div>
 
-      {/* Full-width 3-up Insights grid.
-          <Insights> is grid-cols-1 md:grid-cols-3 — at full viewport width
-          (no sidebar) the three panels get genuine room. */}
-      <Insights funnel={funnel} winRate={winRate} activity={activity} className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.5fr_1fr_1.2fr]" />
+      {/* Full-width 3-up Insights grid — or low-data callout */}
+      {hasEnoughData ? (
+        <Insights
+          funnel={funnel}
+          winRate={winRate}
+          activity={activity}
+          workingCount={workingCount}
+          className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.5fr_1fr_1.2fr]"
+        />
+      ) : (
+        <PipelineLowData leadsInPipeline={funnel.saved} />
+      )}
     </div>
   );
 }
@@ -76,6 +92,22 @@ function KpiTile({
       <div className="mt-0.5 text-[27px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
         {value}
       </div>
+    </div>
+  );
+}
+
+function PipelineLowData({ leadsInPipeline }: { leadsInPipeline: number }) {
+  const needed = LOW_DATA_THRESHOLD - leadsInPipeline;
+  return (
+    <div className="flex min-h-[180px] flex-col items-center justify-center gap-2.5 rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
+      <p className="font-medium text-foreground">
+        Pipeline stats unlock at {LOW_DATA_THRESHOLD} leads
+      </p>
+      <p className="max-w-xs text-sm leading-relaxed text-foreground-2">
+        {leadsInPipeline === 0
+          ? "Start working leads from your feed — save, work, or close a few to see funnel health, win rate, and activity."
+          : `You have ${leadsInPipeline} lead${leadsInPipeline !== 1 ? "s" : ""} in your pipeline. Add ${needed} more to unlock the charts.`}
+      </p>
     </div>
   );
 }
