@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type {
   ActivityTimelineRow,
@@ -25,7 +24,6 @@ import type {
  *   2. Writes the state change (upsert into customer_business_disposition).
  *   3. Writes an append-only event row (business_disposition_event for
  *      business-grain mutations, license_touch for per-event touches).
- *   4. revalidatePath('/') so the dashboard re-renders.
  *
  * RLS enforces that the row's customer_id matches `current_customer_id()`
  * — no application-side scope check needed beyond resolving customer_id
@@ -134,7 +132,6 @@ export async function setStatus(
     });
   }
 
-  revalidatePath("/");
   return { ok: true };
 }
 
@@ -203,7 +200,6 @@ export async function logTouch(
       { onConflict: "customer_id,business_id" },
     );
 
-  revalidatePath("/");
   return { ok: true };
 }
 
@@ -240,7 +236,6 @@ export async function setFollowUp(
     payload: followUpAt ? { at: followUpAt } : {},
   });
 
-  revalidatePath("/");
   return { ok: true };
 }
 
@@ -274,7 +269,6 @@ export async function updateNotes(
     payload: { length: notes.length },
   });
 
-  revalidatePath("/");
   return { ok: true };
 }
 

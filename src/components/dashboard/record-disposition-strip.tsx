@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { BusinessDisposition, DispositionStatus } from "@/lib/disposition/types";
 import type { DashboardRecord } from "@/lib/dashboard/types";
 import { DetailPanel } from "./disposition/detail-panel";
 import { DispositionRow } from "./disposition/disposition-row";
@@ -21,6 +22,12 @@ import { DispositionRow } from "./disposition/disposition-row";
  * panels never overlap interactively. If a global "only one open"
  * coordinator becomes needed later, lift to a context at the dashboard.
  *
+ * confirmedStatus: because mutations no longer call revalidatePath('/'),
+ * record.disposition stays at its RSC-snapshot value until navigation.
+ * We track the last server-confirmed status here so the DetailPanel's
+ * useEffect([open, disposition]) resets to the correct status instead
+ * of the stale RSC value.
+ *
  * Returns null when there's no parent business — dispositions key on
  * business_id and a record without one can't be dispositioned.
  */
@@ -28,12 +35,37 @@ export function RecordDispositionStrip({ record }: { record: DashboardRecord }) 
   const business = record.business;
   const [open, setOpen] = React.useState(false);
   const [hasOpened, setHasOpened] = React.useState(false);
+  const [confirmedStatus, setConfirmedStatus] = React.useState<DispositionStatus>(
+    record.disposition?.status ?? "uncontacted",
+  );
 
   if (!business?.id) return null;
 
   const displayName =
     business.primary_legal_name ?? record.business_name ?? "Unknown business";
   const dba = business.primary_dba_name ?? record.dba_name;
+
+  // Build an effective disposition for the panel that reflects any
+  // strip-level status changes made since the RSC rendered.
+  const effectiveDisposition: BusinessDisposition | null = record.disposition
+    ? { ...record.disposition, status: confirmedStatus }
+    : confirmedStatus !== "uncontacted"
+      ? {
+          // Placeholder for newly-created disposition rows — these fields
+          // are not used by the panel for display or mutation.
+          id: "",
+          customer_id: "",
+          business_id: business.id,
+          status: confirmedStatus,
+          notes: null,
+          follow_up_at: null,
+          last_touched_at: null,
+          last_touch_kind: null,
+          lost_reason: null,
+          created_at: "",
+          updated_at: "",
+        }
+      : null;
 
   // Facets shown in the panel header — match what the card's badge row
   // already surfaces, so opening the panel doesn't introduce new
@@ -60,6 +92,7 @@ export function RecordDispositionStrip({ record }: { record: DashboardRecord }) 
         disposition={record.disposition}
         noteCount={record.disposition?.notes ? 1 : 0}
         onOpen={handleOpen}
+        onStatusConfirmed={setConfirmedStatus}
       />
       {hasOpened ? (
         <DetailPanel
@@ -71,7 +104,7 @@ export function RecordDispositionStrip({ record }: { record: DashboardRecord }) 
           facets={facets}
           signal={record.signal_strength}
           signalReason={record.signal_strength_reason}
-          disposition={record.disposition}
+          disposition={effectiveDisposition}
           onClose={() => setOpen(false)}
         />
       ) : null}

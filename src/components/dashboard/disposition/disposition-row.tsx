@@ -6,6 +6,7 @@ import type { BusinessDisposition, DispositionStatus } from "@/lib/disposition/t
 import { setStatus } from "@/lib/disposition/actions";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "./status-picker";
+import { useStatusCounts } from "./status-counts-context";
 
 /**
  * DispositionRow — the disposition strip mounted on the base of each license
@@ -21,22 +22,32 @@ export function DispositionRow({
   disposition,
   noteCount = 0,
   onOpen,
+  onStatusConfirmed,
 }: {
   businessId: string;
   disposition: BusinessDisposition | null;
   noteCount?: number;
   onOpen?: () => void;
+  /** Called when a status change is confirmed by the server — lets the
+   *  parent (`RecordDispositionStrip`) keep the panel in sync. */
+  onStatusConfirmed?: (next: DispositionStatus) => void;
 }) {
   const initial: DispositionStatus = disposition?.status ?? "uncontacted";
   const [status, setLocalStatus] = React.useState<DispositionStatus>(initial);
   const [pending, startTransition] = React.useTransition();
+  const { onStatusChange } = useStatusCounts();
 
   function changeStatus(next: DispositionStatus) {
     const prev = status;
     setLocalStatus(next); // optimistic
     startTransition(async () => {
       const res = await setStatus(businessId, next);
-      if (!res?.ok) setLocalStatus(prev); // revert
+      if (!res?.ok) {
+        setLocalStatus(prev); // revert
+      } else {
+        onStatusChange(prev, next); // update tab counts in context
+        onStatusConfirmed?.(next);  // keep parent disposition in sync
+      }
     });
   }
 
