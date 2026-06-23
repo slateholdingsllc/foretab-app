@@ -16,7 +16,7 @@ import { SignalTier } from "./signal-tier";
  * Server component — all interactivity is URL navigation.
  */
 
-const PANEL_ITEM_CAP = 5;
+const PANEL_ITEM_CAP = 10;
 
 export function TodayPanel({
   due,
@@ -50,7 +50,7 @@ export function TodayPanel({
           viewAllHref={due.length >= PANEL_ITEM_CAP ? "/?tab=working" : undefined}
         >
           {due.length === 0 ? (
-            <Empty>Nothing due — you&apos;re clear.</Empty>
+            <Empty>Set a follow-up date on a lead to see it here.</Empty>
           ) : (
             due.map((d) => <DueItem key={d.disposition_id} item={d} today={today} />)
           )}
@@ -59,7 +59,7 @@ export function TodayPanel({
         <Section
           title="New · high priority"
           count={newLeads.length}
-          viewAllHref={newLeads.length >= PANEL_ITEM_CAP ? "/?signal=New&ntw=1" : undefined}
+          viewAllHref={newLeads.length >= PANEL_ITEM_CAP ? "/" : undefined}
         >
           {newLeads.length === 0 ? (
             <Empty>No new high-priority leads.</Empty>

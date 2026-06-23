@@ -134,8 +134,8 @@ export default async function DashboardPage({
     fetchDataSourceHealthMap(),
     fetchExportStatus(),
     fetchSavedFilters(),
-    getDueFollowUpsForToday(),
-    getNewHighPriority(),
+    getDueFollowUpsForToday(10),
+    getNewHighPriority(10),
     getStatusCounts(),
     fetchUncontactedCount(filters),
   ]);
