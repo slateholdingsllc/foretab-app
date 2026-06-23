@@ -90,7 +90,7 @@ export function SavedFiltersMenu({
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative" data-tour-id="saved-views">
       <Button
         type="button"
         variant="outline"

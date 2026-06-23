@@ -6,19 +6,26 @@ import type { SignalStrength } from "@/lib/disposition/types";
  *
  * signal_strength is literally a signal, so the icon is a source emitting
  * ripples; the ripple COUNT encodes the tier (shape carries the meaning, so
- * it's colorblind-safe). The accent-intensity tint only reinforces.
+ * it's colorblind-safe). The tint reinforces, but the icon is authoritative.
  *
  *   New          solid node + 2 ripples   "broadcasting strong — act now"
  *   Established   solid node + 1 ripple    "steady hum — known quantity"
  *   Dormant       solid node, no ripples   "gone quiet — low priority"
  *   null/Unrated  dashed ring              "no signal on file"
  *
+ * ─── TWO-LANE COLOR FIX (Claude Design) ───
+ * Solid brand-blue fill is now reserved for ACTIONS (Work / Work lead /
+ * primary buttons). Signal tiers are INFORMATION, so none of them uses a
+ * solid-blue fill anymore — they ride a tint→neutral→outline intensity
+ * ramp, and the ripple-count icon carries the exact tier. This stops the
+ * "New" badge from competing with the adjacent solid-blue action button
+ * (they were the same color in the Today rail). New = blue tint, Established
+ * = neutral, Dormant = outline; decreasing intensity, all clearly distinct
+ * from a filled button.
+ *
  * Small-size tuned: cores are solid and ring spacing is wide so 2-vs-1-vs-0
  * resolves down to the 13px worklist row size; Dormant is the heaviest
  * (filled) node so "0 ripples" never reads as a faint smudge.
- *
- * This is the SINGLE primitive for both surfaces — the disposition layer
- * and Agent C's dashboard SignalBadge (which becomes a one-line wrapper).
  */
 
 /** Bare glyph. Color comes from the parent (currentColor); size from `className`. */
@@ -77,10 +84,19 @@ const ICON_TONE: Record<SignalStrength, string> = {
   Dormant: "text-foreground-muted",
 };
 
-/** Chip treatment (icon + label) per the accent-intensity ramp. */
+/**
+ * Chip treatment (icon + label) — the information lane (no solid-blue fill).
+ *   New         tint + BOLD blue border · strongest, prominent
+ *   Established  tint + soft blue border · mid
+ *   Dormant      neutral outline · faintest
+ * Signals are OUTLINED badges (bordered); the action button is the only
+ * solid fill — different shape-language, so a strong "New" still reads as a
+ * confident signal without competing with the adjacent blue action button.
+ * The ripple-count icon (2/1/0) carries the exact tier.
+ */
 const CHIP: Record<SignalStrength, string> = {
-  New: "bg-accent text-accent-foreground",
-  Established: "bg-accent-tint text-primary",
+  New: "bg-accent-tint text-primary border-[1.5px] border-primary font-semibold",
+  Established: "bg-accent-tint text-primary border border-[color:var(--color-accent-ring)]",
   Dormant: "border border-border bg-transparent text-foreground-muted",
 };
 
@@ -121,13 +137,13 @@ export function SignalTier({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5",
-        "font-mono text-[10px] font-medium uppercase leading-snug tracking-[0.06em]",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1",
+        "font-mono text-[12px] font-medium uppercase leading-snug tracking-[0.05em]",
         signal ? CHIP[signal] : "border border-border bg-transparent text-foreground-subtle",
         className,
       )}
     >
-      <SignalIcon signal={signal} />
+      <SignalIcon signal={signal} className="h-[15px] w-[15px]" />
       {label}
     </span>
   );
