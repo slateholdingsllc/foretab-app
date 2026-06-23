@@ -104,18 +104,25 @@ function WinRate({ rows }: { rows: SignalWinRateRow[] }) {
       {rows.map((r) => {
         const pct = r.total > 0 ? Math.round((r.won / r.total) * 100) : 0;
         return (
-          <div key={r.signal} className="flex flex-col gap-1.5">
+          <Link
+            key={r.signal}
+            href={`/?tab=won&signal=${r.signal}`}
+            className="group flex flex-col gap-1.5 no-underline"
+          >
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.05em] text-foreground-2">
+              <span className="inline-flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.05em] text-foreground-2 transition-colors group-hover:text-foreground">
                 <SignalIcon signal={r.signal} className={cn("h-3 w-3", r.signal === "Dormant" ? "text-foreground-muted" : "text-primary")} />
                 {r.signal}
               </span>
               <span className="font-mono text-[13px] font-medium text-foreground">{pct}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-              <div className={cn("h-full rounded-full", fill[r.signal])} style={{ width: `${pct}%` }} />
+              <div
+                className={cn("h-full rounded-full transition-opacity group-hover:opacity-75", fill[r.signal])}
+                style={{ width: `${pct}%` }}
+              />
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>
@@ -132,10 +139,14 @@ function Activity({ days }: { days: ActivityDay[] }) {
           const h = Math.max(3, (d.count / max) * 100);
           const isPeak = d.count === peak && peak > 0;
           return (
-            <div
+            <Link
               key={d.date}
+              href="/"
               title={`${d.date} · ${d.count}`}
-              className={cn("min-h-[3px] flex-1 rounded-t-sm", isPeak ? "bg-accent" : "bg-accent-tint")}
+              className={cn(
+                "min-h-[3px] flex-1 rounded-t-sm no-underline transition-opacity hover:opacity-75",
+                isPeak ? "bg-accent" : "bg-accent-tint",
+              )}
               style={{ height: `${h}%` }}
             />
           );
