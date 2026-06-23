@@ -3,9 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { SignalMethodologyButton } from "./signal-methodology-button";
-import { TOUR_STEPS } from "./tour-steps";
-
-const STORAGE_KEY = "foretab_tour_v1";
+import { TOUR_STEPS, TOUR_STORAGE_KEY } from "./tour-steps";
 
 type TargetRect = { top: number; left: number; width: number; height: number };
 
@@ -23,7 +21,7 @@ export function GuidedTour({
   useEffect(() => {
     if (!shouldShow) return;
     try {
-      if (localStorage.getItem(STORAGE_KEY)) return;
+      if (localStorage.getItem(TOUR_STORAGE_KEY)) return;
     } catch {
       return;
     }
@@ -36,7 +34,7 @@ export function GuidedTour({
     (complete: boolean) => {
       if (complete) {
         try {
-          localStorage.setItem(STORAGE_KEY, "1");
+          localStorage.setItem(TOUR_STORAGE_KEY, "1");
         } catch {}
         onComplete?.();
       }
@@ -47,7 +45,7 @@ export function GuidedTour({
 
   const measureTarget = useCallback(() => {
     if (!step) return;
-    const el = document.querySelector(`[data-tour-id="${step.targetId}"]`);
+    const el = document.querySelector(`[data-tour-id="${step.anchorId}"]`);
     if (!el) {
       if (stepIndex < TOUR_STEPS.length - 1) {
         setStepIndex((i) => i + 1);
@@ -90,16 +88,24 @@ export function GuidedTour({
   let popTop = 200,
     popLeft = 100;
   if (targetRect && typeof window !== "undefined") {
-    const below = targetRect.top + targetRect.height + POPOVER_OFFSET;
-    const above = targetRect.top - 160 - POPOVER_OFFSET;
-    popTop = below + 160 < window.innerHeight ? below : Math.max(PAD, above);
-    popLeft = Math.max(
-      PAD,
-      Math.min(
-        targetRect.left + targetRect.width / 2 - POPOVER_W / 2,
-        window.innerWidth - POPOVER_W - PAD,
-      ),
-    );
+    if (step.placement === "left") {
+      popLeft = Math.max(PAD, targetRect.left - POPOVER_W - POPOVER_OFFSET);
+      popTop = Math.max(
+        PAD,
+        Math.min(targetRect.top + targetRect.height / 2 - 100, window.innerHeight - 200 - PAD),
+      );
+    } else {
+      const below = targetRect.top + targetRect.height + POPOVER_OFFSET;
+      const above = targetRect.top - 160 - POPOVER_OFFSET;
+      popTop = below + 160 < window.innerHeight ? below : Math.max(PAD, above);
+      popLeft = Math.max(
+        PAD,
+        Math.min(
+          targetRect.left + targetRect.width / 2 - POPOVER_W / 2,
+          window.innerWidth - POPOVER_W - PAD,
+        ),
+      );
+    }
   }
 
   return (
@@ -131,7 +137,7 @@ export function GuidedTour({
         style={{ top: popTop, left: popLeft }}
       >
         <div className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-primary">
-          {step.stepLabel}
+          {step.eyebrow}
         </div>
         <h4 className="mb-1.5 text-[15px] font-semibold leading-snug tracking-[-0.015em] text-foreground">
           {step.title}
