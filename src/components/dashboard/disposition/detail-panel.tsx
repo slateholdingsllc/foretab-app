@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { SignalTier, SignalReason } from "./signal-tier";
 import { StatusPickerStack, LostReasonPicker } from "./status-picker";
 import { ActivityTimeline } from "./activity-timeline";
+import { useStatusCounts } from "./status-counts-context";
 
 /**
  * DetailPanel — the slide-over that opens from DispositionRow.onOpen.
@@ -73,6 +74,7 @@ export function DetailPanel({
   const [timeline, setTimeline] = React.useState<ActivityTimelineRow[]>([]);
   const [loadingTimeline, setLoadingTimeline] = React.useState(true);
   const [, startTransition] = React.useTransition();
+  const { onStatusChange } = useStatusCounts();
 
   const refreshTimeline = React.useCallback(() => {
     getActivityTimeline(businessId).then((rows) => {
@@ -113,8 +115,12 @@ export function DetailPanel({
         next,
         next === "lost" ? lostReason ?? undefined : undefined,
       );
-      if (!res?.ok) setLocalStatus(prev);
-      else refreshTimeline();
+      if (!res?.ok) {
+        setLocalStatus(prev);
+      } else {
+        onStatusChange(prev, next);
+        refreshTimeline();
+      }
     });
   }
 

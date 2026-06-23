@@ -31,6 +31,7 @@ import { ActiveFilterChips } from "@/components/dashboard/active-filter-chips";
 import { GuidedTour } from "@/components/dashboard/guided-tour";
 import { QuotaExceededError } from "@/lib/rpc/errors";
 import { createClient } from "@/lib/supabase/server";
+import { StatusCountsProvider } from "@/components/dashboard/disposition/status-counts-context";
 
 /**
  * Dashboard root. The post-auth landing surface — what customers see
@@ -194,6 +195,7 @@ export default async function DashboardPage({
   };
 
   return (
+    <StatusCountsProvider initialCounts={tabCounts}>
     <AppShell
       email={context.email}
       currentTier={context.currentTier}
@@ -235,7 +237,7 @@ export default async function DashboardPage({
               <Suspense fallback={null}>
                 <DispositionTabsBar
                   active={filters.dispositionTab}
-                  counts={tabCounts}
+                  serverCounts={tabCounts}
                 />
               </Suspense>
             </>
@@ -270,5 +272,6 @@ export default async function DashboardPage({
         </WorklistLayout>
       </DensityProvider>
     </AppShell>
+    </StatusCountsProvider>
   );
 }
