@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { cn } from "@/lib/utils";
 import { serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import type { FilterState } from "@/lib/dashboard/types";
 
@@ -13,7 +14,13 @@ import type { FilterState } from "@/lib/dashboard/types";
  * Does NOT use useSearchParams — reads the current search term from the
  * server-resolved FilterState prop so no Suspense boundary is needed.
  */
-export function WorklistSearchBar({ filters }: { filters: FilterState }) {
+export function WorklistSearchBar({
+  filters,
+  className,
+}: {
+  filters: FilterState;
+  className?: string;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [value, setValue] = useState(filters.search);
@@ -48,7 +55,7 @@ export function WorklistSearchBar({ filters }: { filters: FilterState }) {
   }
 
   return (
-    <div className="relative mb-2.5">
+    <div className={cn("relative mb-2.5", className)}>
       <span
         aria-hidden="true"
         className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted"
