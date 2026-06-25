@@ -215,6 +215,11 @@ body {
   color: var(--color-foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Geist is a variable font — 420 sits between regular (400) and medium
+     (500), giving body text more presence without requiring explicit
+     font-medium everywhere. Elements with explicit weight classes
+     (font-semibold, font-bold) are unaffected. */
+  font-weight: 420;
 }
 
 /* Smooth theme transitions on the document surface itself. Scoped to

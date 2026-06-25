@@ -36,7 +36,7 @@ export function TodayPanel({
       <header className="flex items-center gap-2.5 border-b border-border px-[18px] py-3.5">
         <span className="h-[7px] w-[7px] rounded-full bg-accent shadow-[0_0_0_3px_var(--color-accent-tint)]" />
         <span className="text-sm font-medium tracking-[-0.01em] text-foreground">Today</span>
-        <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.08em] text-foreground-muted">
+        <span className="ml-auto font-mono text-[12px] uppercase tracking-[0.06em] text-foreground-muted">
           {dateLabel}
         </span>
       </header>
@@ -85,7 +85,7 @@ function Section({
 }) {
   return (
     <div className="px-[18px] py-3.5">
-      <div className="mb-3 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.1em] text-foreground-muted">
+      <div className="mb-3 flex items-center justify-between font-mono text-[12px] uppercase tracking-[0.08em] text-foreground-muted">
         <span>{title}</span>
         <div className="flex items-center gap-2">
           <span className="text-foreground-2">{count}</span>
@@ -126,7 +126,7 @@ function DueItem({ item, today }: { item: DueFollowUp; today: Date }) {
         </div>
         <div
           className={cn(
-            "mt-0.5 font-mono text-[11px] tracking-[0.03em]",
+            "mt-0.5 font-mono text-[12px] tracking-[0.02em]",
             overdue ? "text-destructive" : "text-warning",
           )}
         >
@@ -154,7 +154,7 @@ function LeadItem({ item }: { item: NewHighPriorityLead }) {
         <div className="truncate text-sm font-medium tracking-[-0.01em] text-foreground">
           {item.display_name}
         </div>
-        <div className="mt-0.5 font-mono text-[10px] tracking-[0.03em] text-foreground-muted">
+        <div className="mt-0.5 font-mono text-[12px] tracking-[0.02em] text-foreground-muted">
           {item.state_code ? `${item.state_code} · ` : ""}
           {days === 0 ? "today" : `${days}d ago`}
         </div>
