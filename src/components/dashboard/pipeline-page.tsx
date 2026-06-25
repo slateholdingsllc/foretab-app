@@ -42,9 +42,9 @@ export function PipelinePage({
   const hasEnoughData = funnel.saved >= LOW_DATA_THRESHOLD;
 
   return (
-    <div className="mx-auto max-w-screen-xl space-y-6 px-5 py-6 lg:px-8 lg:py-8">
+    <div className="flex h-full flex-col overflow-y-auto px-5 py-6 lg:px-8 lg:py-8">
       {/* Page heading */}
-      <div>
+      <div className="shrink-0">
         <h1 className="text-[22px] font-bold tracking-[-0.025em] text-foreground">
           Pipeline
         </h1>
@@ -54,21 +54,21 @@ export function PipelinePage({
       </div>
 
       {/* KPI strip — 4 tiles, 2-up on mobile, 4-up on sm+ */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <div className="mt-6 grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiTile label="In pipeline" value={funnel.surfaced} />
         <KpiTile label="Working" value={workingCount} />
         <KpiTile label="Won · 30d" value={won} />
         <KpiTile label="Win rate" value={`${winRatePct}%`} />
       </div>
 
-      {/* Full-width 3-up Insights grid — or low-data callout */}
+      {/* Full-width 3-up Insights grid fills remaining viewport height */}
       {hasEnoughData ? (
         <Insights
           funnel={funnel}
           winRate={winRate}
           activity={activity}
           workingCount={workingCount}
-          className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.5fr_1fr_1.2fr]"
+          className="mt-6 grid min-h-0 flex-1 grid-cols-1 gap-3.5 md:grid-cols-[1.5fr_1fr_1.2fr]"
         />
       ) : (
         <PipelineLowData leadsInPipeline={funnel.saved} />
@@ -85,11 +85,11 @@ function KpiTile({
   value: number | string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-3.5 py-3">
-      <div className="font-mono text-[12px] uppercase tracking-[0.05em] text-muted-foreground">
+    <div className="rounded-lg border border-border bg-card px-5 py-4">
+      <div className="font-mono text-[11px] uppercase tracking-[0.07em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-0.5 text-[27px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
+      <div className="mt-1.5 text-[32px] font-bold leading-none tracking-[-0.025em] tabular-nums text-foreground">
         {value}
       </div>
     </div>

@@ -46,12 +46,14 @@ export function Insights({
 
 function Card({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3.5 rounded-lg border border-border bg-card p-4">
-      <header className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium tracking-[-0.01em] text-foreground">{title}</span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-foreground-muted">{sub}</span>
+    <section className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-5">
+      <header className="mb-4 flex shrink-0 flex-col gap-0.5">
+        <span className="text-[15px] font-semibold tracking-[-0.015em] text-foreground">{title}</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-foreground-muted">{sub}</span>
       </header>
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {children}
+      </div>
     </section>
   );
 }
@@ -65,14 +67,14 @@ function Funnel({ data, workingCount }: { data: DispositionFunnelData; workingCo
     { label: "Won",      value: data.won,       won: true,           href: "/?tab=won" },
   ];
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-1 flex-col justify-between gap-3">
       {stages.map((s) => (
         <Link
           key={s.label}
           href={s.href}
-          className="group flex flex-col gap-1 no-underline"
+          className="group flex flex-col gap-1.5 no-underline"
         >
-          <div className="flex items-baseline justify-between font-mono text-[10.5px] tracking-[0.04em]">
+          <div className="flex items-baseline justify-between font-mono text-[11px] tracking-[0.04em]">
             <span className="uppercase text-foreground-2 transition-colors group-hover:text-foreground">
               {s.label}
             </span>
@@ -80,7 +82,7 @@ function Funnel({ data, workingCount }: { data: DispositionFunnelData; workingCo
           </div>
           <div
             className={cn(
-              "h-[22px] rounded-sm transition-opacity group-hover:opacity-75",
+              "h-[26px] rounded-sm transition-opacity group-hover:opacity-75",
               s.won ? "bg-success" : "bg-accent",
             )}
             style={{ width: `${Math.max(4, (s.value / max) * 100)}%` }}
@@ -100,7 +102,7 @@ function WinRate({ rows }: { rows: SignalWinRateRow[] }) {
     Dormant: "bg-foreground-muted",
   };
   return (
-    <div className="flex flex-col gap-3.5 pt-0.5">
+    <div className="flex flex-1 flex-col justify-between gap-4 pt-0.5">
       {rows.map((r) => {
         const pct = r.total > 0 ? Math.round((r.won / r.total) * 100) : 0;
         return (
@@ -133,8 +135,8 @@ function Activity({ days }: { days: ActivityDay[] }) {
   const max = Math.max(...days.map((d) => d.count), 1);
   const peak = max;
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex h-24 items-end gap-[3px]">
+    <div className="flex flex-1 flex-col gap-2.5">
+      <div className="flex min-h-0 flex-1 items-end gap-[3px]">
         {days.map((d) => {
           const h = Math.max(3, (d.count / max) * 100);
           const isPeak = d.count === peak && peak > 0;
