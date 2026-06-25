@@ -40,11 +40,17 @@ import { SignalMethodologyButton } from "./signal-methodology-button";
  */
 
 // ── Chip visual primitives ────────────────────────────────────────────────
+// Filter chips look like toggle buttons, not data badges. Readable size,
+// sentence case, solid active fill so selection is unambiguous.
 const CHIP_BASE =
-  "inline-flex cursor-pointer select-none items-center font-mono text-[10px] font-medium uppercase tracking-[0.06em] px-2 py-1 rounded-sm border transition-colors";
+  "inline-flex cursor-pointer select-none items-center text-[13px] font-medium px-2.5 py-[5px] rounded border transition-colors leading-none";
 const CHIP_OFF =
-  "bg-secondary border-border text-foreground-2 hover:border-foreground-subtle hover:text-foreground";
-const CHIP_ON = "bg-accent-tint border-accent-ring text-accent";
+  "bg-card border-border text-foreground-2 hover:border-foreground-subtle hover:bg-surface-2 hover:text-foreground";
+const CHIP_ON = "bg-accent border-accent text-accent-foreground";
+
+// State chips keep mono+uppercase since 2-char codes read better that way
+const STATE_CHIP_BASE =
+  "inline-flex cursor-pointer select-none items-center font-mono text-[12px] font-medium uppercase tracking-[0.04em] px-2 py-1 rounded border transition-colors leading-none";
 
 /** Span that visually tracks the adjacent hidden peer checkbox/radio. */
 function PeerChip({ children }: { children: React.ReactNode }) {
@@ -53,7 +59,7 @@ function PeerChip({ children }: { children: React.ReactNode }) {
       className={cn(
         CHIP_BASE,
         CHIP_OFF,
-        "peer-checked:bg-accent-tint peer-checked:border-accent-ring peer-checked:text-accent",
+        "peer-checked:bg-accent peer-checked:border-accent peer-checked:text-accent-foreground",
         "peer-disabled:cursor-not-allowed peer-disabled:opacity-40",
       )}
     >
@@ -79,7 +85,11 @@ function StateChip({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={cn(CHIP_BASE, active ? CHIP_ON : CHIP_OFF, "disabled:cursor-not-allowed disabled:opacity-40")}
+      className={cn(
+        STATE_CHIP_BASE,
+        active ? CHIP_ON : CHIP_OFF,
+        "disabled:cursor-not-allowed disabled:opacity-40",
+      )}
     >
       {children}
     </button>
@@ -95,7 +105,7 @@ function FilterSectionLabel({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-foreground-muted">
+      <span className="text-[12px] font-semibold text-foreground-2">
         {children}
       </span>
       {aside}

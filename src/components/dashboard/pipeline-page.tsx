@@ -45,10 +45,10 @@ export function PipelinePage({
     <div className="flex h-full flex-col overflow-y-auto px-5 py-6 lg:px-8 lg:py-8">
       {/* Page heading */}
       <div className="shrink-0">
-        <h1 className="text-[22px] font-bold tracking-[-0.025em] text-foreground">
+        <h1 className="font-display text-[28px] font-semibold leading-tight tracking-[-0.03em] text-foreground">
           Pipeline
         </h1>
-        <p className="mt-1 text-sm text-foreground-2">
+        <p className="mt-1.5 text-[15px] text-foreground-2">
           Funnel health, win rate by signal, and 30-day activity.
         </p>
       </div>
@@ -85,11 +85,11 @@ function KpiTile({
   value: number | string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card px-5 py-4">
-      <div className="font-mono text-[11px] uppercase tracking-[0.07em] text-muted-foreground">
+    <div className="rounded-lg border border-border bg-card px-5 py-5">
+      <div className="font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1.5 text-[32px] font-bold leading-none tracking-[-0.025em] tabular-nums text-foreground">
+      <div className="mt-2 text-[34px] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground">
         {value}
       </div>
     </div>
