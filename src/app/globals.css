@@ -28,9 +28,18 @@
 
 @theme {
   /* ─── Fonts ─────────────────────────────────────────────────
-     The Geist + Geist Mono CSS variables are set on <html> by
-     next/font/google (see src/app/layout.tsx). The Tailwind tokens
-     prepend those variables to a robust fallback chain. */
+     All three CSS variables are set on <html> by next/font/google
+     (see src/app/layout.tsx). The Tailwind tokens prepend those
+     variables to a robust fallback chain.
+
+     Usage:
+       --font-display  → Bricolage Grotesque — page headings, empty
+                         states, auth screens. Editorial weight.
+       --font-sans     → Geist — UI body, controls, card titles.
+       --font-mono     → Geist Mono — data, badges, eyebrows, timestamps. */
+  --font-display:
+    var(--font-display), "Bricolage Grotesque", ui-sans-serif,
+    system-ui, sans-serif;
   --font-sans:
     var(--font-geist), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -39,19 +48,25 @@
     "Liberation Mono", monospace;
 
   /* ─── Surfaces ──────────────────────────────────────────────
-     Cool graphite ramp, slight navy bias. Matches foretab.com's
-     ink ramp end-to-end. */
-  --color-background: #0A0E1A;
-  --color-surface: #11151F;
-  --color-surface-2: #181D29;
-  --color-surface-3: #232936;
+     Lifted dark-slate ramp (The Scene direction): base is dark navy-
+     slate (#111827), not near-black. Each step is visibly lighter so
+     cards separate from bg and elevated panels separate from cards.
+     Same character as Linear / Vercel dark — layered, not flat.
+
+     HSL lightness steps: bg 9% → surface 15% → surface-2 20% → surface-3 25%
+     Combined with visible hairline borders, each layer reads distinct. */
+  --color-background: #111827;
+  --color-surface:    #1C2333;
+  --color-surface-2:  #222D41;
+  --color-surface-3:  #2A3750;
 
   /* ─── Borders ───────────────────────────────────────────────
-     --color-input mirrors --color-border so input fields read as
-     borders, not as a different stroke. */
-  --color-border: #232936;
-  --color-border-soft: #181D29;
-  --color-input: #232936;
+     Lifted from near-invisible (#232936) to clearly hairline (#2E3D55).
+     On the new lighter surfaces, the border reads as a clean line
+     rather than a barely-there stroke. Input mirrors border. */
+  --color-border:      #2E3D55;
+  --color-border-soft: #222D41;
+  --color-input:       #2E3D55;
 
   /* ─── Foreground (text) ─────────────────────────────────────
      Card titles + body use --color-foreground.
@@ -59,25 +74,28 @@
      Eyebrow / meta / labels use --color-foreground-muted.
      Placeholders / disabled use --color-foreground-subtle.
 
-     foreground-muted lifted #767E91 → #8B93A6 (Spotlight overlay):
-     the old value fell to 4.14:1 on surface-2 and 3.58:1 on
-     surface-3 — below WCAG-AA for text. #8B93A6 clears 4.5:1 on
-     every dark surface. */
-  --color-foreground: #F2F4F7;
-  --color-foreground-2: #C9CED8;
-  --color-foreground-muted: #8B93A6;
-  --color-foreground-subtle: #525B6E;
+     foreground-muted lifted → #9AAFC5: clears 4.5:1 on all four
+     surfaces (7.2:1 bg · 6.3:1 surface · 6.1:1 surface-2 · 4.7:1
+     surface-3). Slightly cooler/lighter than the old #8B93A6 so
+     meta text, eyebrows, and data labels read clearly without noise.
+     foreground-subtle → #5B6B84: placeholder-only, ~3:1 on bg
+     (exempt per WCAG 2.1 inactive-component exception). */
+  --color-foreground:        #EEF2F7;
+  --color-foreground-2:      #C9CED8;
+  --color-foreground-muted:  #9AAFC5;
+  --color-foreground-subtle: #5B6B84;
 
-  /* ─── Accent (electric blue, brand) ─────────────────────────
-     Hover is a hue shift (lighter), not an opacity drop, because
-     opacity-hover reads as prototype-quality. Pressed reverses
-     toward the deeper accent-soft. */
-  --color-accent: #2A7BFF;
-  --color-accent-hover: #4A8FFF;
-  --color-accent-soft: #1F5AD9;
-  --color-accent-foreground: #0A0E1A;
-  --color-accent-tint: rgba(42, 123, 255, 0.10);
-  --color-accent-ring: rgba(42, 123, 255, 0.30);
+  /* ─── Accent (light electric blue, brand) ───────────────────
+     #60A5FA matches the locked marketing-site brand blue.
+     Hover shifts lighter; pressed steps to mid-blue.
+     accent-foreground is dark ink (not white) — #60A5FA is a
+     light fill that requires dark text for WCAG AA contrast. */
+  --color-accent: #60A5FA;
+  --color-accent-hover: #93C5FD;
+  --color-accent-soft: #3B82F6;
+  --color-accent-foreground: #05070C;
+  --color-accent-tint: rgba(96, 165, 250, 0.10);
+  --color-accent-ring: rgba(96, 165, 250, 0.30);
 
   /* ─── Semantic ──────────────────────────────────────────────
      Used by FreshnessBadge (success), TrialBadge (warning when
@@ -118,63 +136,65 @@
   --color-ring: var(--color-accent);
 
   /* ─── Radii ─────────────────────────────────────────────────
-     Existing components use rounded-md (= 6px). We keep --radius
-     at 6px for backward compatibility; the sm/lg keys give us
-     pinned-3px badges and pinned-8px elevated cards in PR 2/3.
-     --radius-pill (Spotlight overlay) is for pill-shaped primary
-     and entry CTAs; dense data controls keep the smaller radii. */
-  --radius-sm: 3px;
-  --radius: 6px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-pill: 9999px;
+     The Scene direction: sharp corners throughout.
+     --radius-pill now matches the marketing site's 5px CTAs —
+     NOT a true pill. Badges use --radius-sm (2px, nearly square).
+     Cards use --radius-lg (6px), base controls use --radius (4px).
+     Dense data controls get the sharpest treatment. */
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-pill: 5px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   LIGHT THEME — opt-in · SPOTLIGHT WARM PAPER
+   LIGHT THEME — opt-in · WARM PAPER (layered)
    Applied by setting <html data-theme="light"> (handled by ThemeToggle
    + the FOUC-safe init script in layout.tsx).
 
-   Re-skinned to the marketing site's warm paper: the cool-white ramp
-   (#F6F7F9 / #FFFFFF / #F2F4F7) becomes warm cream, foregrounds warm
-   ink, and the accent matches the Spotlight brand blue (#1C61E8 — AA
-   on white). Semantics keep their AA-compliant light values.
+   The Surface ramp in light mode is inverted from dark — bg is slightly
+   off-white (warm cream), cards are pure white (float off the cream bg),
+   surface-2 steps back down for input fills. Each step is intentionally
+   distinct so panels separate and inputs read as fillable.
+
+   Border lifted to #C2CDD9 so hairlines read clearly on cream. Same
+   layering discipline as dark mode — no flat surfaces.
    ═══════════════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-  --color-background: #FCFBF8;
-  --color-surface: #FFFFFF;
-  --color-surface-2: #F4F2EC;
-  --color-surface-3: #EAE5D8;
+  --color-background: #F4F7FA;
+  --color-surface:    #FFFFFF;
+  --color-surface-2:  #ECF0F5;
+  --color-surface-3:  #DDE4ED;
 
-  --color-border: #ECE9E1;
-  --color-border-soft: #F4F2EC;
-  --color-input: #ECE9E1;
+  --color-border:      #C2CDD9;
+  --color-border-soft: #DCE4EE;
+  --color-input:       #C2CDD9;
 
-  --color-foreground: #14171C;
-  --color-foreground-2: #43474F;
-  --color-foreground-muted: #5C6270;
-  --color-foreground-subtle: #9A968B;
+  --color-foreground:        #0F1729;
+  --color-foreground-2:      #2D3A50;
+  --color-foreground-muted:  #4A5A72;
+  --color-foreground-subtle: #7890A8;
 
-  /* Light-mode accent matches the Spotlight marketing blue (#1C61E8).
-     On warm paper this reads as the brand identity at AA-compliant
-     contrast against white button text. */
-  --color-accent: #1C61E8;
-  --color-accent-hover: #1450C4;
-  --color-accent-soft: #5B92FF;
+  /* Light-mode accent is the cobalt deep — #2563EB passes 4.84:1 on
+     white and 5.7:1 on the cream bg. White button text is correct here
+     (dark text would fail at this saturation level). */
+  --color-accent:            #2563EB;
+  --color-accent-hover:      #1D4ED8;
+  --color-accent-soft:       #3B82F6;
   --color-accent-foreground: #FFFFFF;
-  --color-accent-tint: rgba(28, 97, 232, 0.08);
-  --color-accent-ring: rgba(28, 97, 232, 0.22);
+  --color-accent-tint:       rgba(37, 99, 235, 0.08);
+  --color-accent-ring:       rgba(37, 99, 235, 0.22);
 
-  --color-success: #197D52;
-  --color-success-tint: rgba(25, 125, 82, 0.08);
-  --color-warning: #A6701F;
-  --color-warning-tint: rgba(166, 112, 31, 0.08);
-  --color-destructive: #B23A28;
-  --color-destructive-tint: rgba(178, 58, 40, 0.08);
+  --color-success:      #166534;
+  --color-success-tint: rgba(22, 101, 52, 0.08);
+  --color-warning:      #92400E;
+  --color-warning-tint: rgba(146, 64, 14, 0.08);
+  --color-destructive:  #991B1B;
+  --color-destructive-tint: rgba(153, 27, 27, 0.08);
 
-  /* Spotlight amber reads brighter on warm paper. */
-  --color-amber: #F4B53C;
-  --color-amber-tint: rgba(244, 181, 60, 0.22);
+  --color-amber: #B45309;
+  --color-amber-tint: rgba(180, 83, 9, 0.10);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

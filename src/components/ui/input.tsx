@@ -17,9 +17,10 @@ import { cn } from "@/lib/utils";
  *   - placeholder uses --color-foreground-subtle (the deepest muted)
  *     so placeholders don't compete with real values.
  *
- * SPOTLIGHT overlay (visual only): taller field (h-11), softer radius
- * (rounded-lg), and 15px text to match the marketing scale. API and
- * callers unchanged.
+ * The Scene overlay: bg-secondary so inputs sit one surface step below
+ * their card container — inset affordance in dark mode, slightly recessed
+ * in light mode. Hover lifts the border to foreground-subtle so there's
+ * a clear "active" signal before focus. Radius matches --radius-lg (6px).
  */
 const Input = React.forwardRef<
   HTMLInputElement,
@@ -29,7 +30,7 @@ const Input = React.forwardRef<
     <input
       type={type}
       className={cn(
-        "flex h-11 w-full rounded-lg border border-input bg-card px-3.5 py-2 text-[15px] font-normal tracking-[-0.005em] text-foreground placeholder:text-foreground-subtle transition-colors hover:border-surface-3 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[color:var(--color-accent-ring)] disabled:cursor-not-allowed disabled:opacity-50 file:border-0 file:bg-transparent file:text-sm file:font-medium",
+        "flex h-11 w-full rounded-lg border border-input bg-secondary px-3.5 py-2 text-[15px] font-normal tracking-[-0.005em] text-foreground placeholder:text-foreground-subtle transition-colors hover:border-foreground-subtle focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[color:var(--color-accent-ring)] disabled:cursor-not-allowed disabled:opacity-50 file:border-0 file:bg-transparent file:text-sm file:font-medium",
         className,
       )}
       ref={ref}
