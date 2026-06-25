@@ -15,7 +15,7 @@ import {
   getDueFollowUpsForToday,
   getNewHighPriority,
 } from "@/lib/disposition/today.queries";
-import { hasActiveFilters, parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
+import { hasActiveFilters, parseFiltersFromSearchParams, serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import {
   fetchAccessibleStateCodes,
   fetchCustomerContext,
@@ -220,10 +220,35 @@ export default async function DashboardPage({
                 savedFilters={savedFilters}
                 resultCount={page?.totalCount ?? undefined}
               />
-              {/* Desktop search — hidden on mobile; MobileWorklistControls renders its own. */}
-              <div className="hidden lg:block">
-                <WorklistSearchBar filters={filters} />
-              </div>
+              {/* Desktop search + Export CSV — hidden on mobile */}
+              {(() => {
+                const exportParams = serializeFiltersToSearchParams(filters);
+                const exportHref = `/api/export.csv${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
+                return (
+                  <div className="hidden lg:flex lg:items-center lg:gap-2">
+                    <div className="min-w-0 flex-1">
+                      <WorklistSearchBar filters={filters} className="mb-0" />
+                    </div>
+                    {exportStatus.canExport ? (
+                      <a
+                        href={exportHref}
+                        title={exportStatus.isTrial ? `Trial: up to ${exportStatus.cap - (exportStatus.alreadyExported ?? 0)} more rows` : `Up to ${exportStatus.cap.toLocaleString()} rows per export`}
+                        className="inline-flex h-12 shrink-0 items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 transition-colors hover:border-foreground-subtle hover:text-foreground"
+                      >
+                        Export CSV
+                      </a>
+                    ) : (
+                      <span
+                        aria-disabled="true"
+                        title={exportStatus.isTrial ? `Trial export limit reached (${exportStatus.cap} records). Upgrade for higher limits.` : "Export unavailable for your account."}
+                        className="inline-flex h-12 shrink-0 cursor-not-allowed items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 opacity-40"
+                      >
+                        Export CSV
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Desktop active-filter scope — shows chips when filters are applied,
                   fallback text when none so the rep always knows what scope is live. */}
               <div className="hidden lg:flex lg:items-center">

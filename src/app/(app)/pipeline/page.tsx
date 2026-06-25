@@ -109,6 +109,7 @@ export default async function PipelineRoute() {
       savedFilters={savedFilters}
       currentFilters={DEFAULT_FILTER_STATE}
       hideSidebar
+      viewport="full"
     >
       {funnel !== null ? (
         <PipelinePage
