@@ -48,14 +48,14 @@ export function SignalMethodology({
 
       <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-3">
         {METHODOLOGY_TIERS.map((t) => (
-          <div key={t.tier} className="bg-card px-5 py-5">
+          <div key={t.tier} className="flex flex-col bg-card px-5 py-5">
             <div className="mb-2.5 flex items-center gap-2">
               <SignalIcon signal={t.tier} className="h-4 w-4 text-primary" />
               <span className="font-mono text-[12px] font-medium uppercase tracking-[0.05em] text-foreground">
                 {t.tier}
               </span>
             </div>
-            <p className="text-[13px] leading-relaxed text-muted-foreground">{t.rule}</p>
+            <p className="flex-1 text-[13px] leading-relaxed text-muted-foreground">{t.rule}</p>
             <p className="mt-2.5 border-t border-border-soft pt-2.5 text-[13px] leading-relaxed text-foreground-2">
               <span className="font-medium text-foreground">Why a rep acts —</span>{" "}
               {t.act}
