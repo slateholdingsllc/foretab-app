@@ -1,12 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 /**
- * Geist is the brand sans. Geist Mono is reserved for data — record
- * IDs, timestamps, classifier output, eyebrow/meta labels. Both load
- * once at the root and become Tailwind tokens via globals.css.
+ * Bricolage Grotesque is the display face — used for page-level headings,
+ * empty-state callouts, and auth screens. It matches the marketing site's
+ * editorial character without overriding the instrument-panel Geist voice
+ * used in data/card contexts.
+ *
+ * Geist is the UI sans for body, labels, and controls.
+ * Geist Mono is reserved for data — record IDs, timestamps, badges, eyebrows.
+ *
+ * All three load once at the root and become Tailwind tokens via globals.css.
  */
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+
 const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
@@ -41,18 +54,17 @@ export const metadata: Metadata = {
  *
  * Resolution order:
  *   1. localStorage["foretab-theme"] = "light" | "dark"  → explicit choice
- *   2. fall back to "light"                              → Spotlight default
+ *   2. fall back to "dark"                               → The Scene default
  *
- * No prefers-color-scheme branch on purpose: a fresh visitor's first
- * impression is the warm Spotlight palette regardless of OS pref, so
- * the rebrand actually reads. Returning users who've used ThemeToggle
- * keep their explicit choice — only the no-preference default flips.
+ * Dark is the approved brand default for The Scene direction. Returning
+ * users who've explicitly set a preference keep it — only the
+ * no-preference case defaults to dark.
  *
  * Wrapped in try/catch so a localStorage failure (private mode, etc.)
- * never blocks rendering. Errors swallowed — light also covers the
+ * never blocks rendering. Errors swallowed — dark also covers the
  * worst case.
  */
-const themeInitScript = `(function(){try{var s=localStorage.getItem('foretab-theme');document.documentElement.dataset.theme=(s==='light'||s==='dark')?s:'light';}catch(e){document.documentElement.dataset.theme='light';}})();`;
+const themeInitScript = `(function(){try{var s=localStorage.getItem('foretab-theme');document.documentElement.dataset.theme=(s==='light'||s==='dark')?s:'dark';}catch(e){document.documentElement.dataset.theme='dark';}})();`;
 
 export default function RootLayout({
   children,
@@ -65,7 +77,7 @@ export default function RootLayout({
     // otherwise warn about the server/client attribute mismatch.
     <html
       lang="en"
-      className={`${geist.variable} ${geistMono.variable}`}
+      className={`${bricolage.variable} ${geist.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
