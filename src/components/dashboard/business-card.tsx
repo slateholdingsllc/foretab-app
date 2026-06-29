@@ -114,7 +114,13 @@ export function BusinessCard({
 
       <RecordDispositionStrip record={headline} />
 
-      {others.length > 0 ? <BusinessCardHistory records={others} /> : null}
+      {headline.business?.id ? (
+        <BusinessCardHistory
+          businessId={headline.business.id}
+          headlineId={headline.id}
+          knownOtherCount={others.length}
+        />
+      ) : null}
     </Card>
   );
 }

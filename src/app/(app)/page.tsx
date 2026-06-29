@@ -20,6 +20,7 @@ import {
   fetchAccessibleStateCodes,
   fetchCustomerContext,
   fetchDashboardPage,
+  fetchDashboardPageByBusiness,
   fetchUncontactedCount,
   fetchDataSourceHealthMap,
   fetchExportStatus,
@@ -144,7 +145,9 @@ export default async function DashboardPage({
   ] = await Promise.allSettled([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
-    fetchDashboardPage({ filters, cursor }),
+    isOpeningNow
+      ? fetchDashboardPageByBusiness({ filters, cursor })
+      : fetchDashboardPage({ filters, cursor }),
     fetchDataSourceHealthMap(),
     fetchExportStatus(),
     fetchSavedFilters(),

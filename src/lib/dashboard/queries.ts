@@ -3,7 +3,7 @@ import type {
   DispositionStatus,
 } from "@/lib/disposition/types";
 import { createClient } from "@/lib/supabase/server";
-import { rpcFetchAllRecordsForExport, rpcFetchDashboardPage, rpcFetchUncontactedCount } from "@/lib/rpc/feed";
+import { rpcFetchAllRecordsForExport, rpcFetchDashboardPage, rpcFetchDashboardPageByBusiness, rpcFetchUncontactedCount } from "@/lib/rpc/feed";
 import { rpcEnforced } from "@/lib/rpc/flag";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
@@ -479,6 +479,19 @@ export async function fetchDashboardPage(args: {
     nextCursor,
     totalCount: count ?? null,
   };
+}
+
+/**
+ * Business-grain pagination for the Opening Now view. Delegates to
+ * rpcFetchDashboardPageByBusiness — always RPC, no PostgREST path.
+ * Returns one DashboardRecord per business (the freshest qualifying
+ * record selected by get_feed_by_business's ROW_NUMBER() partition).
+ */
+export async function fetchDashboardPageByBusiness(args: {
+  filters: FilterState;
+  cursor: string | null;
+}): Promise<PageResult> {
+  return rpcFetchDashboardPageByBusiness(args);
 }
 
 /**

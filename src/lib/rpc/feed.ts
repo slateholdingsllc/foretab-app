@@ -370,3 +370,156 @@ export async function rpcFetchAllRecordsForExport(args: {
 
   return records;
 }
+
+// ---------------------------------------------------------------------------
+// Public: rpcFetchDashboardPageByBusiness
+// ---------------------------------------------------------------------------
+// Business-grain pagination for the Opening Now view. get_feed_by_business
+// returns exactly ONE row per business (the headline — freshest qualifying
+// record selected by ROW_NUMBER() within partition). p_offset counts
+// distinct businesses, not classified_records, so page boundaries never
+// split a multi-license business across pages.
+//
+// get_feed_by_business does not expose p_date_from or p_lead_type; those
+// params are omitted from the call.
+
+export async function rpcFetchDashboardPageByBusiness(args: {
+  filters: FilterState;
+  cursor: string | null;
+}): Promise<PageResult> {
+  const { filters } = args;
+  const offset = decodeRpcOffset(args.cursor);
+
+  const stateIdsResult = await resolveStateIds(filters.states);
+  if (stateIdsResult === "empty_filter") {
+    return { records: [], nextCursor: null, totalCount: 0 };
+  }
+  const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
+
+  const fp = buildFilterParams(filters);
+
+  const supabase = await createClient();
+
+  const [feedResult, countResult] = await Promise.all([
+    supabase.rpc("get_feed_by_business", {
+      p_state_ids:           stateIds,
+      p_limit:               PAGE_SIZE + 1,
+      p_offset:              offset,
+      p_customer_status:     fp.p_customer_status,
+      p_license_type:        fp.p_license_type,
+      p_search:              fp.p_search,
+      p_license_record_type: fp.p_license_record_type,
+      p_signal_strength:     fp.p_signal_strength,
+      p_business_archetype:  fp.p_business_archetype,
+      p_days_window:         fp.p_days_window,
+      p_new_this_week:       fp.p_new_this_week,
+      p_city:                fp.p_city,
+      p_zip:                 fp.p_zip,
+      p_icp_relevance:       fp.p_icp_relevance,
+      p_disposition_status:  fp.p_disposition_status,
+      p_sort:                fp.p_sort,
+    }),
+    supabase.rpc("get_feed_by_business_count", {
+      p_state_ids:           stateIds,
+      p_customer_status:     fp.p_customer_status,
+      p_license_type:        fp.p_license_type,
+      p_search:              fp.p_search,
+      p_license_record_type: fp.p_license_record_type,
+      p_signal_strength:     fp.p_signal_strength,
+      p_business_archetype:  fp.p_business_archetype,
+      p_days_window:         fp.p_days_window,
+      p_new_this_week:       fp.p_new_this_week,
+      p_city:                fp.p_city,
+      p_zip:                 fp.p_zip,
+      p_icp_relevance:       fp.p_icp_relevance,
+      p_disposition_status:  fp.p_disposition_status,
+    }),
+  ]);
+
+  if (feedResult.error) {
+    detectRpcError(feedResult.error);
+    throw new Error(`get_feed_by_business failed: ${feedResult.error.message}`);
+  }
+
+  const rows = (feedResult.data ?? []) as RawFeedRecord[];
+  const hasMore = rows.length > PAGE_SIZE;
+  const pageRows = rows.slice(0, PAGE_SIZE);
+
+  const pageStateIds = Array.from(new Set(pageRows.map((r) => r.state_id)));
+  const stateCodeMap = await fetchStateCodeMap(pageStateIds);
+
+  const records: DashboardRecord[] = pageRows.map((r) => rawToRecord(r, stateCodeMap));
+
+  const pageBusinessIds = Array.from(
+    new Set(
+      records
+        .map((r) => r.business?.id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const dispositionMap = await fetchDispositionsByBusinessId(pageBusinessIds);
+  for (const record of records) {
+    const bid = record.business?.id;
+    if (bid) record.disposition = dispositionMap.get(bid) ?? null;
+  }
+
+  const totalCount =
+    !countResult.error && typeof countResult.data === "number"
+      ? countResult.data
+      : !countResult.error && typeof countResult.data === "bigint"
+        ? Number(countResult.data)
+        : null;
+
+  void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "get_feed_by_business" })).catch(() => {});
+
+  return {
+    records,
+    nextCursor: hasMore ? encodeRpcCursor(offset + PAGE_SIZE) : null,
+    totalCount,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public: fetchBusinessLicenseHistory
+// ---------------------------------------------------------------------------
+// Full license lifecycle for a business card's history expand. Called from
+// the BusinessCardHistory client component via server-action import.
+//
+// Returns all published records for the business ordered sort_date DESC,
+// with the headline record filtered out (caller passes headlineId).
+// Access-gated by get_business_license_history's SECURITY DEFINER RLS:
+// business_accessible_to_customer() returns empty set for out-of-scope
+// businesses rather than erroring.
+
+export async function fetchBusinessLicenseHistory(
+  businessId: string,
+  headlineId: string,
+): Promise<DashboardRecord[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("get_business_license_history", {
+    p_business_id: businessId,
+  });
+
+  if (error) {
+    console.error("[fetchBusinessLicenseHistory]", error);
+    return [];
+  }
+
+  const rows = ((data ?? []) as RawFeedRecord[]).filter((r) => r.id !== headlineId);
+  if (rows.length === 0) return [];
+
+  const stateIds = Array.from(new Set(rows.map((r) => r.state_id)));
+  const stateCodeMap = await fetchStateCodeMap(stateIds);
+
+  const records: DashboardRecord[] = rows.map((r) => rawToRecord(r, stateCodeMap));
+
+  // Single business — one disposition lookup covers all history records.
+  const dispositionMap = await fetchDispositionsByBusinessId([businessId]);
+  const disposition = dispositionMap.get(businessId) ?? null;
+  for (const record of records) {
+    record.disposition = disposition;
+  }
+
+  return records;
+}
