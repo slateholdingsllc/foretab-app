@@ -152,7 +152,10 @@ function mapDispositionStatus(tab: DispositionTab): string | null {
 function buildFilterParams(filters: FilterState) {
   return {
     p_state_ids:           null as string[] | null, // caller sets after build
-    p_customer_status:     null,
+    p_customer_status: (
+      filters.licenseTypes.length > 0 &&
+      filters.licenseTypes.every((t) => t === "new_issuance" || t === "application")
+    ) ? ["Active", "Pending"] : null,
     p_license_type:        null,
     p_license_record_type: filters.licenseTypes.length > 0 ? filters.licenseTypes : null,
     p_signal_strength:     filters.signalStrengths.length > 0 ? filters.signalStrengths : null,
