@@ -112,7 +112,21 @@ export default async function DashboardPage({
   // Past the guards — fetch data in parallel. allSettled so one slow query
   // can't crash the whole page — sections render degraded states independently.
   const resolvedSearchParams = await searchParams;
-  const filters = parseFiltersFromSearchParams(resolvedSearchParams);
+  const rawFilters = parseFiltersFromSearchParams(resolvedSearchParams);
+  // Opening Now is the default view. Active when there is no explicit ?types=
+  // in the URL and the user hasn't opted into ?all=1 (all-records override).
+  // Applies p_license_record_type=['new_issuance','application'] and a 180d
+  // window as server-side defaults — the URL stays clean (just "/") and the
+  // filter form's Apply rebuilds from URL, so the preset is transparent.
+  const hasExplicitTypes = typeof resolvedSearchParams.types === "string";
+  const isOpeningNow = !hasExplicitTypes && resolvedSearchParams.all !== "1";
+  const filters = isOpeningNow
+    ? {
+        ...rawFilters,
+        licenseTypes: ["new_issuance", "application"] as typeof rawFilters.licenseTypes,
+        daysWindow: rawFilters.daysWindow ?? 180,
+      }
+    : rawFilters;
   const cursor =
     typeof resolvedSearchParams.cursor === "string" ? resolvedSearchParams.cursor : null;
 
@@ -285,6 +299,7 @@ export default async function DashboardPage({
               filters={filters}
               healthMap={healthMap}
               exportStatus={exportStatus}
+              isOpeningNow={isOpeningNow}
             />
           ) : feedError instanceof QuotaExceededError ? (
             <SectionDegraded
