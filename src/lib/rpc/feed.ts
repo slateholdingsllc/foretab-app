@@ -2,7 +2,7 @@
 
 import type { BusinessDisposition } from "@/lib/disposition/types";
 import { createClient } from "@/lib/supabase/server";
-import type { DashboardRecord, DispositionTab, FilterState, PageResult, SortOrder } from "@/lib/dashboard/types";
+import type { DashboardRecord, DispositionTab, FilterState, MapPin, PageResult, SortOrder } from "@/lib/dashboard/types";
 import { PAGE_SIZE } from "@/lib/dashboard/types";
 import { decodeRpcOffset, encodeRpcCursor } from "./cursor";
 import { detectRpcError } from "./errors";
@@ -123,6 +123,8 @@ function rawToRecord(
         }
       : null,
     lead_type: raw.lead_type ?? null,
+    premises_state_code: raw.premises_state_code ?? null,
+    in_state: raw.in_state ?? null,
   };
 }
 
@@ -522,4 +524,138 @@ export async function fetchBusinessLicenseHistory(
   }
 
   return records;
+}
+
+// ---------------------------------------------------------------------------
+// Public: fetchMapPins
+// ---------------------------------------------------------------------------
+// Returns a lightweight MapPin[] for the map tab. Calls get_feed with a
+// high p_limit cap, then does a secondary SELECT on locations for lat/lng
+// (coordinates are NOT in the feed_record composite type).
+//
+// Coordinate lookup is batched in chunks of 500 to avoid Supabase's 1000-row
+// .in() cap (see supabase-1000-row-cap memory).
+
+const MAP_PIN_LIMIT = 2000;
+
+export async function fetchMapPins(filters: FilterState): Promise<{
+  pins: MapPin[];
+  placedCount: number;
+  unplacedCount: number;
+}> {
+  const stateIdsResult = await resolveStateIds(filters.states);
+  if (stateIdsResult === "empty_filter") {
+    return { pins: [], placedCount: 0, unplacedCount: 0 };
+  }
+  const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
+
+  const filterParams = buildFilterParams(filters);
+  filterParams.p_state_ids = stateIds;
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("get_feed", {
+    ...filterParams,
+    p_limit: MAP_PIN_LIMIT,
+    p_offset: 0,
+    p_lead_type: undefined,
+  });
+
+  if (error) {
+    console.error("[fetchMapPins] get_feed failed:", error);
+    return { pins: [], placedCount: 0, unplacedCount: 0 };
+  }
+
+  const rows = (data ?? []) as RawFeedRecord[];
+  if (rows.length === 0) return { pins: [], placedCount: 0, unplacedCount: 0 };
+
+  // Secondary lat/lng lookup — not in feed_record, must SELECT from locations.
+  const locationIds = Array.from(
+    new Set(rows.filter((r) => r.location_id).map((r) => r.location_id as string)),
+  );
+  const coordMap = new Map<string, { lat: number; lng: number }>();
+  for (let i = 0; i < locationIds.length; i += 500) {
+    const batch = locationIds.slice(i, i + 500);
+    const { data: locData } = await supabase
+      .from("locations")
+      .select("id, latitude, longitude")
+      .in("id", batch);
+    for (const loc of (locData ?? []) as Array<{
+      id: string;
+      latitude: number | null;
+      longitude: number | null;
+    }>) {
+      if (loc.latitude !== null && loc.longitude !== null) {
+        coordMap.set(loc.id, { lat: loc.latitude, lng: loc.longitude });
+      }
+    }
+  }
+
+  const pageStateIds = Array.from(new Set(rows.map((r) => r.state_id)));
+  const stateCodeMap = await fetchStateCodeMap(pageStateIds);
+
+  const businessIds = Array.from(
+    new Set(rows.filter((r) => r.business_id).map((r) => r.business_id as string)),
+  );
+  const dispositionMap = await fetchDispositionsByBusinessId(businessIds);
+
+  let placedCount = 0;
+  let unplacedCount = 0;
+
+  const pins: MapPin[] = rows.map((raw) => {
+    const stateCode = stateCodeMap.get(raw.state_id) ?? null;
+    const coords = raw.location_id ? coordMap.get(raw.location_id) : undefined;
+    if (coords) placedCount++;
+    else unplacedCount++;
+
+    return {
+      id: raw.id,
+      businessId: raw.business_id,
+      businessName: raw.business_name,
+      locationId: raw.location_id,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      premisesStateCode: raw.premises_state_code,
+      inState: raw.in_state,
+      licenseStateCode: stateCode,
+      signalStrength: raw.signal_strength,
+      licenseRecordType: raw.license_record_type,
+      city: raw.location_city,
+      zip: raw.location_zip,
+      disposition: raw.business_id ? (dispositionMap.get(raw.business_id) ?? null) : null,
+    };
+  });
+
+  void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "get_feed" })).catch(() => {});
+
+  return { pins, placedCount, unplacedCount };
+}
+
+// ---------------------------------------------------------------------------
+// Public: lookupZipCenter
+// ---------------------------------------------------------------------------
+// Returns an approximate lat/lng centroid for a ZIP code derived from the
+// average of all location coordinates in that ZIP. Used by the map's radius
+// search. Returns null if no geocoded locations exist for the ZIP.
+
+export async function lookupZipCenter(
+  zip: string,
+): Promise<{ lat: number; lng: number } | null> {
+  if (!zip || !/^\d{5}$/.test(zip)) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("locations")
+    .select("latitude, longitude")
+    .eq("zip", zip)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null)
+    .limit(100);
+
+  const locs = (data ?? []) as Array<{ latitude: number; longitude: number }>;
+  if (locs.length === 0) return null;
+
+  const lat = locs.reduce((s, l) => s + l.latitude, 0) / locs.length;
+  const lng = locs.reduce((s, l) => s + l.longitude, 0) / locs.length;
+  return { lat, lng };
 }

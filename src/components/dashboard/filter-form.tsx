@@ -155,6 +155,10 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
     const hideEvents = formData.get("hideEvents") === "1";
     const city = String(formData.get("city") ?? "").trim();
     const zip = String(formData.get("zip") ?? "").trim();
+    const territoryRaw = String(formData.get("territory") ?? "all");
+    const territory = (["all", "in", "out"].includes(territoryRaw)
+      ? territoryRaw
+      : "all") as FilterState["filterTerritory"];
 
     const next: FilterState = {
       states,
@@ -170,6 +174,7 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
       city,
       zip,
       leadTypes: hideEvents ? (["recurring"] as LeadType[]) : [],
+      filterTerritory: territory,
     };
 
     const params = serializeFiltersToSearchParams(next);
@@ -224,6 +229,32 @@ export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: str
                     ? current.daysWindow === null
                     : current.daysWindow === Number.parseInt(o.value, 10)
                 }
+                disabled={pending}
+                className="sr-only peer"
+              />
+              <PeerChip>{o.label}</PeerChip>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Territory ─────────────────────────────────────────────── */}
+      <div className="space-y-2">
+        <FilterSectionLabel>Territory</FilterSectionLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              { value: "all", label: "All" },
+              { value: "in", label: "In-state only" },
+              { value: "out", label: "Out-of-state only" },
+            ] as const
+          ).map((o) => (
+            <label key={o.value} className="contents">
+              <input
+                type="radio"
+                name="territory"
+                value={o.value}
+                defaultChecked={current.filterTerritory === o.value}
                 disabled={pending}
                 className="sr-only peer"
               />

@@ -114,6 +114,13 @@ export function ActiveFilterChips({ filters }: { filters: FilterState }) {
       remove: () => navigate({ ...filters, zip: "" }),
     });
   }
+  if (filters.filterTerritory !== "all") {
+    chips.push({
+      key: "territory",
+      label: filters.filterTerritory === "in" ? "In-state only" : "Out-of-state only",
+      remove: () => navigate({ ...filters, filterTerritory: "all" }),
+    });
+  }
 
   if (chips.length === 0) return null;
 

@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getRecordSourceLabel } from "@/lib/dashboard/state-display";
+import { stateCodeToName } from "@/lib/dashboard/state-names";
 import type { DashboardRecord, StateHealthEntry } from "@/lib/dashboard/types";
 import { FreshnessBadge } from "./freshness-badge";
 import { RecordDispositionStrip } from "./record-disposition-strip";
@@ -70,7 +71,14 @@ export function BusinessCard({
         </div>
 
         {address ? (
-          <p className="text-sm leading-relaxed text-foreground-2">{address}</p>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <p className="text-sm leading-relaxed text-foreground-2">{address}</p>
+            {headline.in_state === false && headline.premises_state_code ? (
+              <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-foreground-muted">
+                {stateCodeToName(headline.premises_state_code)} premises
+              </span>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-1.5">

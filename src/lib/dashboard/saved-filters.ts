@@ -167,6 +167,7 @@ export function normalizeFilterConfig(raw: unknown): FilterState {
     city: DEFAULT_FILTER_STATE.city,
     zip: DEFAULT_FILTER_STATE.zip,
     leadTypes,
+    filterTerritory: DEFAULT_FILTER_STATE.filterTerritory,
   };
 }
 
