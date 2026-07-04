@@ -143,6 +143,20 @@ export function SavedFiltersMenu({
           </form>
 
           <div className="max-h-72 overflow-y-auto p-1">
+            {/* Built-in preset: always visible */}
+            <ul className="space-y-0.5 border-b border-input pb-1 mb-1">
+              <li className="flex items-center gap-1 rounded-md hover:bg-accent">
+                <Link
+                  href="/?territory=out"
+                  onClick={() => setOpen(false)}
+                  className="flex-1 truncate px-2 py-2 text-sm"
+                  prefetch={false}
+                >
+                  Incoming suppliers
+                  <span className="ml-2 text-xs text-muted-foreground">preset</span>
+                </Link>
+              </li>
+            </ul>
             {savedFilters.length === 0 ? (
               <p className="px-2 py-4 text-center text-sm text-muted-foreground">
                 No saved views yet.

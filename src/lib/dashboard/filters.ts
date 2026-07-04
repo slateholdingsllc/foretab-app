@@ -9,6 +9,15 @@ import {
   type SortOrder,
 } from "./types";
 
+const VALID_TERRITORY_VALUES = ["all", "in", "out"] as const;
+type TerritoryValue = (typeof VALID_TERRITORY_VALUES)[number];
+
+function parseTerritory(raw: string | undefined): FilterState["filterTerritory"] {
+  if (!raw) return DEFAULT_FILTER_STATE.filterTerritory;
+  if ((VALID_TERRITORY_VALUES as readonly string[]).includes(raw)) return raw as TerritoryValue;
+  return DEFAULT_FILTER_STATE.filterTerritory;
+}
+
 const VALID_DISPOSITION_TABS: DispositionTab[] = [
   "all",
   "uncontacted",
@@ -146,6 +155,7 @@ export function parseFiltersFromSearchParams(
     city: get("city")?.trim() ?? "",
     zip: get("zip")?.trim() ?? "",
     leadTypes: parseList(get("lead"), VALID_LEAD_TYPES),
+    filterTerritory: parseTerritory(get("territory")),
   };
 }
 
@@ -172,6 +182,9 @@ export function serializeFiltersToSearchParams(filters: FilterState): URLSearchP
   if (filters.city.length > 0) params.set("city", filters.city);
   if (filters.zip.length > 0) params.set("zip", filters.zip);
   if (filters.leadTypes.length > 0) params.set("lead", filters.leadTypes.join(","));
+  if (filters.filterTerritory !== DEFAULT_FILTER_STATE.filterTerritory) {
+    params.set("territory", filters.filterTerritory);
+  }
   return params;
 }
 
@@ -200,6 +213,7 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.newThisWeek ||
     filters.city.length > 0 ||
     filters.zip.length > 0 ||
-    filters.leadTypes.length > 0
+    filters.leadTypes.length > 0 ||
+    filters.filterTerritory !== DEFAULT_FILTER_STATE.filterTerritory
   );
 }

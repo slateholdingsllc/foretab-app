@@ -69,4 +69,8 @@ export type RawFeedRecord = {
   // From locations LEFT JOIN (flat)
   location_street: string | null;
   location_normalized_address: string | null;
+
+  // Territory fields (migration 000036)
+  premises_state_code: string | null;
+  in_state: boolean | null;
 };

@@ -415,6 +415,8 @@ export async function fetchDashboardPage(args: {
       : null,
     location: r.locations,
     lead_type: r.lead_type ?? null,
+    premises_state_code: null,
+    in_state: null,
   }));
 
   // Enrich with the full disposition row. One extra query keyed by the
@@ -872,6 +874,8 @@ export async function fetchAllRecordsForExport(args: {
       : null,
     location: r.locations,
     lead_type: r.lead_type ?? null,
+    premises_state_code: null,
+    in_state: null,
   }));
 
   // Enrich with the full disposition row — same pattern as fetchDashboardPage.

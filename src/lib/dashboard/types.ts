@@ -177,6 +177,10 @@ export type DashboardRecord = {
     zip: string | null;
   } | null;
   lead_type: string | null;
+  /** Physical premises state code from locations join (migration 000036). */
+  premises_state_code: string | null;
+  /** True when premises state matches the license-issuing state (migration 000036). */
+  in_state: boolean | null;
 };
 
 export type SortOrder =
@@ -235,6 +239,16 @@ export type FilterState = {
   zip: string;
   /** Lead type filter. [] = show all (default). ["recurring"] = hide events. */
   leadTypes: LeadType[];
+  /**
+   * Territory filter — filters records by whether the physical premises is
+   * in the same state as the license. "all" = no filter (default). "in" =
+   * in-state premises only. "out" = out-of-state premises only.
+   *
+   * Server-side p_in_state RPC param is pending Agent A (migration 000037).
+   * The URL param is live and carried through to the map page where it is
+   * applied client-side on loaded pins.
+   */
+  filterTerritory: "all" | "in" | "out";
 };
 
 export const DEFAULT_FILTER_STATE: FilterState = {
@@ -251,6 +265,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   city: "",
   zip: "",
   leadTypes: [],
+  filterTerritory: "all",
 };
 
 export const PAGE_SIZE = 50;
@@ -271,6 +286,27 @@ export type StateHealthEntry = {
 };
 
 export type StateHealthMap = Map<string, StateHealthEntry>;
+
+/**
+ * Lightweight pin record used by the map tab. Derived from get_feed with a
+ * secondary locations SELECT for lat/lng (coordinates are not in feed_record).
+ */
+export type MapPin = {
+  id: string;
+  businessId: string | null;
+  businessName: string | null;
+  locationId: string | null;
+  lat: number | null;
+  lng: number | null;
+  premisesStateCode: string | null;
+  inState: boolean | null;
+  licenseStateCode: string | null;
+  signalStrength: string | null;
+  licenseRecordType: string | null;
+  city: string | null;
+  zip: string | null;
+  disposition: BusinessDisposition | null;
+};
 
 export type CursorPayload = {
   /** Sort field value (ISO timestamp, date string, or text). Empty string when n=true. */

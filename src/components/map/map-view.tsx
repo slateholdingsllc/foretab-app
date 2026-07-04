@@ -1,0 +1,226 @@
+"use client";
+
+import "leaflet/dist/leaflet.css";
+import { useMemo, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import type { MapPin } from "@/lib/dashboard/types";
+import { stateCodeToName } from "@/lib/dashboard/state-names";
+import { MapControls } from "./map-controls";
+
+// CartoDB Positron — clean neutral tiles, no API key required
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+// Haversine distance in miles between two lat/lng points
+function haversineDistance(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const sin2 =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(sin2));
+}
+
+function makePinIcon(inState: boolean | null): L.DivIcon {
+  const color = inState === false ? "#F59E0B" : "#4F7EEB";
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.25)"></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
+    popupAnchor: [0, -10],
+  });
+}
+
+function RadiusCenterSetter({
+  onSet,
+}: {
+  onSet: (c: { lat: number; lng: number }) => void;
+}) {
+  useMapEvents({
+    contextmenu(e) {
+      onSet({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
+export function MapView({
+  initialPins,
+  placedCount: initialPlaced,
+  unplacedCount: initialUnplaced,
+}: {
+  initialPins: MapPin[];
+  placedCount: number;
+  unplacedCount: number;
+}) {
+  const [territory, setTerritory] = useState<"all" | "in" | "out">("all");
+  const [radiusCenter, setRadiusCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [radiusMiles, setRadiusMiles] = useState<number | null>(null);
+
+  const placedPins = useMemo(
+    () => initialPins.filter((p) => p.lat !== null && p.lng !== null),
+    [initialPins],
+  );
+
+  const visiblePins = useMemo(() => {
+    let pins = placedPins;
+    if (territory === "in") pins = pins.filter((p) => p.inState === true);
+    else if (territory === "out") pins = pins.filter((p) => p.inState === false);
+    if (radiusCenter && radiusMiles !== null) {
+      pins = pins.filter(
+        (p) =>
+          haversineDistance(radiusCenter, { lat: p.lat!, lng: p.lng! }) <= radiusMiles,
+      );
+    }
+    return pins;
+  }, [placedPins, territory, radiusCenter, radiusMiles]);
+
+  const unplacedFiltered = useMemo(() => {
+    let pins = initialPins.filter((p) => p.lat === null || p.lng === null);
+    if (territory === "in") pins = pins.filter((p) => p.inState === true);
+    else if (territory === "out") pins = pins.filter((p) => p.inState === false);
+    return pins;
+  }, [initialPins, territory]);
+
+  // Initial map bounds fitted to all placed pins; falls back to US view
+  const mapProps = useMemo(() => {
+    if (placedPins.length === 0) {
+      return { center: [39.5, -98.35] as [number, number], zoom: 4 };
+    }
+    const bounds = L.latLngBounds(
+      placedPins.map((p) => [p.lat!, p.lng!] as [number, number]),
+    );
+    return { bounds, boundsOptions: { padding: [40, 40] as [number, number] } };
+  }, [placedPins]);
+
+  return (
+    <div className="flex h-full flex-col">
+      <MapControls
+        territory={territory}
+        onTerritoryChange={setTerritory}
+        radiusCenter={radiusCenter}
+        onRadiusCenterChange={setRadiusCenter}
+        radiusMiles={radiusMiles}
+        onRadiusMilesChange={setRadiusMiles}
+        placedCount={visiblePins.length}
+        unplacedCount={unplacedFiltered.length}
+      />
+
+      {placedPins.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
+          No geocoded locations found. Coordinates are populated as records are
+          processed — check back after the next data refresh.
+        </div>
+      ) : (
+        <div className="relative flex-1">
+          <MapContainer
+            {...mapProps}
+            style={{ height: "100%", width: "100%" }}
+            scrollWheelZoom
+          >
+            <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
+            <RadiusCenterSetter onSet={setRadiusCenter} />
+            {visiblePins.map((pin) => (
+              <Marker
+                key={pin.id}
+                position={[pin.lat!, pin.lng!]}
+                icon={makePinIcon(pin.inState)}
+              >
+                <Popup minWidth={200}>
+                  <div style={{ padding: "2px 0", lineHeight: 1.5 }}>
+                    <p style={{ fontWeight: 700, fontSize: "13px", marginBottom: "3px" }}>
+                      {pin.businessName ?? "Unknown business"}
+                    </p>
+                    {pin.city ? (
+                      <p style={{ fontSize: "12px", color: "#888", marginBottom: "2px" }}>
+                        {[pin.city, pin.premisesStateCode, pin.zip]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    ) : null}
+                    {pin.inState === false && pin.premisesStateCode ? (
+                      <p style={{ fontSize: "11px", color: "#B45309", marginBottom: "2px" }}>
+                        {stateCodeToName(pin.premisesStateCode)} premises
+                      </p>
+                    ) : null}
+                    {pin.signalStrength ? (
+                      <p style={{ fontSize: "11px", color: "#888", marginBottom: "4px" }}>
+                        {pin.signalStrength} signal
+                        {pin.licenseRecordType
+                          ? ` · ${pin.licenseRecordType.replace(/_/g, " ")}`
+                          : ""}
+                      </p>
+                    ) : null}
+                    {pin.businessName ? (
+                      <a
+                        href={`/?q=${encodeURIComponent(pin.businessName)}`}
+                        style={{
+                          fontSize: "12px",
+                          color: "#4F7EEB",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        View on worklist →
+                      </a>
+                    ) : null}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+
+          {radiusCenter && radiusMiles ? (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 24,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 1000,
+                background: "rgba(255,255,255,0.9)",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                padding: "6px 14px",
+                fontSize: 12,
+                color: "#64748b",
+                backdropFilter: "blur(4px)",
+                pointerEvents: "none",
+              }}
+            >
+              Within {radiusMiles} mi · right-click to reposition
+            </div>
+          ) : (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 24,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 1000,
+                background: "rgba(255,255,255,0.85)",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                padding: "6px 14px",
+                fontSize: 12,
+                color: "#94a3b8",
+                backdropFilter: "blur(4px)",
+                pointerEvents: "none",
+              }}
+            >
+              Right-click anywhere to set a radius center
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
