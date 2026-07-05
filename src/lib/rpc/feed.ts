@@ -162,7 +162,7 @@ function buildFilterParams(filters: FilterState) {
     p_license_record_type: filters.licenseTypes.length > 0 ? filters.licenseTypes : null,
     p_signal_strength:     filters.signalStrengths.length > 0 ? filters.signalStrengths : null,
     p_business_archetype:  filters.businessArchetypes.length > 0 ? filters.businessArchetypes : null,
-    p_days_window:         filters.daysWindow ?? null,
+    p_days_window:         filters.daysWindow ?? undefined, // undefined = omit → DB uses DEFAULT 180; null would override it
     p_date_from:           null,
     p_new_this_week:       filters.newThisWeek ? true : false,
     p_search:              filters.search.trim() || null,
@@ -536,7 +536,7 @@ export async function fetchBusinessLicenseHistory(
 // Coordinate lookup is batched in chunks of 500 to avoid Supabase's 1000-row
 // .in() cap (see supabase-1000-row-cap memory).
 
-const MAP_PIN_LIMIT = 2000;
+const MAP_PIN_LIMIT = 500; // 2000 Leaflet SVG markers stalls the browser; 500 is the UX sweet spot
 
 export async function fetchMapPins(filters: FilterState): Promise<{
   pins: MapPin[];

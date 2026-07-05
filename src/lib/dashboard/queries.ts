@@ -179,9 +179,14 @@ export async function fetchDashboardPage(args: {
   if (filters.businessArchetypes.length > 0) {
     query = query.in("business_archetype", filters.businessArchetypes);
   }
-  if (filters.daysWindow !== null) {
+  {
+    // Always apply a date window — never let null (All time) hit the DB
+    // unguarded. Default to 180 days when the user hasn't chosen a window;
+    // the DB function also defaults to 180 but receives an explicit null
+    // from this PostgREST path which bypasses that default.
+    const effectiveDaysWindow = filters.daysWindow ?? 180;
     const threshold = new Date(
-      Date.now() - filters.daysWindow * 24 * 60 * 60 * 1000,
+      Date.now() - effectiveDaysWindow * 24 * 60 * 60 * 1000,
     ).toISOString();
     query = query.gte("classified_at", threshold);
   }
@@ -737,9 +742,14 @@ export async function fetchAllRecordsForExport(args: {
   if (filters.businessArchetypes.length > 0) {
     query = query.in("business_archetype", filters.businessArchetypes);
   }
-  if (filters.daysWindow !== null) {
+  {
+    // Always apply a date window — never let null (All time) hit the DB
+    // unguarded. Default to 180 days when the user hasn't chosen a window;
+    // the DB function also defaults to 180 but receives an explicit null
+    // from this PostgREST path which bypasses that default.
+    const effectiveDaysWindow = filters.daysWindow ?? 180;
     const threshold = new Date(
-      Date.now() - filters.daysWindow * 24 * 60 * 60 * 1000,
+      Date.now() - effectiveDaysWindow * 24 * 60 * 60 * 1000,
     ).toISOString();
     query = query.gte("classified_at", threshold);
   }
