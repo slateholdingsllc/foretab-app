@@ -219,7 +219,7 @@ export default async function DashboardPage({
       trialExpiresAt={context.trialExpiresAt}
       accessibleStateCodes={accessibleStateCodes}
       savedFilters={savedFilters}
-      currentFilters={filters}
+      currentFilters={rawFilters}
       healthMap={healthMap}
       viewport="full"
     >
@@ -232,7 +232,7 @@ export default async function DashboardPage({
           tabs={
             <>
               <MobileWorklistControls
-                filters={filters}
+                filters={rawFilters}
                 accessibleStateCodes={accessibleStateCodes}
                 savedFilters={savedFilters}
                 resultCount={page?.totalCount ?? undefined}
@@ -244,7 +244,7 @@ export default async function DashboardPage({
                 return (
                   <div className="hidden lg:flex lg:items-center lg:gap-2">
                     <div className="min-w-0 flex-1">
-                      <WorklistSearchBar filters={filters} className="mb-0" />
+                      <WorklistSearchBar filters={rawFilters} className="mb-0" />
                     </div>
                     {exportStatus.canExport ? (
                       <a
@@ -269,8 +269,8 @@ export default async function DashboardPage({
               {/* Desktop active-filter scope — shows chips when filters are applied,
                   fallback text when none so the rep always knows what scope is live. */}
               <div className="hidden lg:flex lg:items-center">
-                <ActiveFilterChips filters={filters} />
-                {!hasActiveFilters(filters) && (
+                <ActiveFilterChips filters={rawFilters} />
+                {!hasActiveFilters(rawFilters) && (
                   <p className="text-[11px] leading-none text-foreground-subtle">
                     Viewing all {accessibleStateCodes.length} accessible states
                   </p>

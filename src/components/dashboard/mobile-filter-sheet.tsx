@@ -75,6 +75,7 @@ export function MobileFilterSheet({
   const [showInactive, setShowInactive] = useState<boolean>(filters.showInactive);
   const [city, setCity] = useState<string>(filters.city);
   const [zip, setZip] = useState<string>(filters.zip);
+  const [territory, setTerritory] = useState<FilterState["filterTerritory"]>(filters.filterTerritory);
 
   // Re-seed when the sheet (re)opens or the URL changes underneath it.
   useEffect(() => {
@@ -88,6 +89,7 @@ export function MobileFilterSheet({
     setShowInactive(filters.showInactive);
     setCity(filters.city);
     setZip(filters.zip);
+    setTerritory(filters.filterTerritory);
     setPanel("filters");
   }, [open, filters]);
 
@@ -120,6 +122,7 @@ export function MobileFilterSheet({
       showInactive,
       city,
       zip,
+      filterTerritory: territory,
     };
     const params = serializeFiltersToSearchParams(next);
     const qs = params.toString();
@@ -139,6 +142,7 @@ export function MobileFilterSheet({
     setShowInactive(false);
     setCity("");
     setZip("");
+    setTerritory("all");
   }
 
   const draftActive =
@@ -149,7 +153,8 @@ export function MobileFilterSheet({
     days !== "" ||
     showInactive ||
     city !== "" ||
-    zip !== "";
+    zip !== "" ||
+    territory !== "all";
 
   if (!open) return null;
 
