@@ -43,14 +43,14 @@ import { SignalMethodologyButton } from "./signal-methodology-button";
 // Filter chips look like toggle buttons, not data badges. Readable size,
 // sentence case, solid active fill so selection is unambiguous.
 const CHIP_BASE =
-  "inline-flex cursor-pointer select-none items-center text-[13px] font-medium px-2.5 py-[5px] rounded border transition-colors leading-none";
+  "inline-flex cursor-pointer select-none items-center text-sm font-medium px-3 py-1.5 rounded border transition-colors leading-none";
 const CHIP_OFF =
   "bg-card border-border text-foreground-2 hover:border-foreground-subtle hover:bg-surface-2 hover:text-foreground";
 const CHIP_ON = "bg-accent border-accent text-accent-foreground";
 
 // State chips keep mono+uppercase since 2-char codes read better that way
 const STATE_CHIP_BASE =
-  "inline-flex cursor-pointer select-none items-center font-mono text-[12px] font-medium uppercase tracking-[0.04em] px-2 py-1 rounded border transition-colors leading-none";
+  "inline-flex cursor-pointer select-none items-center font-mono text-[13px] font-medium uppercase tracking-[0.04em] px-2.5 py-1.5 rounded border transition-colors leading-none";
 
 /** Span that visually tracks the adjacent hidden peer checkbox/radio. */
 function PeerChip({ children }: { children: React.ReactNode }) {
@@ -105,7 +105,7 @@ function FilterSectionLabel({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[12px] font-semibold text-foreground-2">
+      <span className="text-[13px] font-semibold text-foreground-2">
         {children}
       </span>
       {aside}
@@ -114,7 +114,7 @@ function FilterSectionLabel({
 }
 
 function singleSelectClassName() {
-  return "flex h-9 w-full rounded border border-input bg-secondary px-2.5 py-1.5 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  return "flex h-10 w-full rounded border border-input bg-secondary px-2.5 py-1.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 }
 
 export function FilterForm({ accessibleStateCodes }: { accessibleStateCodes: string[] }) {

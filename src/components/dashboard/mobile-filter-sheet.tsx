@@ -363,7 +363,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={on}
       className={cn(
-        "rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
+        "rounded-full border px-3.5 py-2 text-sm font-medium transition-colors",
         on
           ? "border-primary bg-primary text-primary-foreground"
           : "border-input bg-card text-foreground-2 hover:bg-secondary",

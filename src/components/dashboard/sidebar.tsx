@@ -26,7 +26,7 @@ export function Sidebar({
   healthMap: StateHealthMap;
 }) {
   return (
-    <aside className="hidden w-80 shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
+    <aside className="hidden w-[340px] shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
       <div className="flex-1 space-y-7 overflow-y-auto p-6">
         <div>
           <Label variant="eyebrow">Filter</Label>
