@@ -131,10 +131,15 @@ export default async function DashboardPage({
   const cursor =
     typeof resolvedSearchParams.cursor === "string" ? resolvedSearchParams.cursor : null;
 
+  // Feed query runs in parallel but is NOT awaited here — Suspense streams
+  // it to the client once resolved, so the page shell renders immediately.
+  const feedPromise = isOpeningNow
+    ? fetchDashboardPageByBusiness({ filters, cursor })
+    : fetchDashboardPage({ filters, cursor });
+
   const [
     contextResult,
     accessibleStateCodesResult,
-    pageResult,
     healthMapResult,
     exportStatusResult,
     savedFiltersResult,
@@ -145,9 +150,6 @@ export default async function DashboardPage({
   ] = await Promise.allSettled([
     fetchCustomerContext(),
     fetchAccessibleStateCodes(),
-    isOpeningNow
-      ? fetchDashboardPageByBusiness({ filters, cursor })
-      : fetchDashboardPage({ filters, cursor }),
     fetchDataSourceHealthMap(),
     fetchExportStatus(),
     fetchSavedFilters(),
@@ -171,10 +173,6 @@ export default async function DashboardPage({
     accessibleStateCodesResult.status === "fulfilled"
       ? accessibleStateCodesResult.value
       : [];
-  const page =
-    pageResult.status === "fulfilled" ? pageResult.value : null;
-  const feedError =
-    pageResult.status === "rejected" ? pageResult.reason : null;
   const healthMap =
     healthMapResult.status === "fulfilled" ? healthMapResult.value : new Map();
   const exportStatus =
@@ -198,7 +196,7 @@ export default async function DashboardPage({
 
   // StatusTabs counts — degrade gracefully when statusCounts fails.
   const tabCounts: Partial<Record<StatusTabValue, number>> = {
-    all: page?.totalCount ?? undefined,
+    all: undefined, // resolved via the streamed feed
     ...(statusCounts
       ? {
           uncontacted: uncontactedCount ?? undefined,
@@ -235,7 +233,7 @@ export default async function DashboardPage({
                 filters={rawFilters}
                 accessibleStateCodes={accessibleStateCodes}
                 savedFilters={savedFilters}
-                resultCount={page?.totalCount ?? undefined}
+                resultCount={undefined}
               />
               {/* Desktop search + Export CSV — hidden on mobile */}
               {(() => {
@@ -296,25 +294,57 @@ export default async function DashboardPage({
             />
           }
         >
-          {page !== null ? (
-            <Feed
-              page={page}
+          <Suspense fallback={null}>
+            <StreamedFeed
+              feedPromise={feedPromise}
               filters={filters}
               healthMap={healthMap}
               exportStatus={exportStatus}
               isOpeningNow={isOpeningNow}
             />
-          ) : feedError instanceof QuotaExceededError ? (
-            <SectionDegraded
-              message="You've reached your daily record limit. Resets at midnight UTC."
-              showRetry={false}
-            />
-          ) : (
-            <SectionDegraded message="Records are taking longer than usual" />
-          )}
+          </Suspense>
         </WorklistLayout>
       </DensityProvider>
     </AppShell>
     </StatusCountsProvider>
   );
+}
+
+/** Awaits the feed promise inside a Suspense boundary — streams records to
+ *  the client once the query resolves without blocking the page shell. */
+async function StreamedFeed({
+  feedPromise,
+  filters,
+  healthMap,
+  exportStatus,
+  isOpeningNow,
+}: {
+  feedPromise: ReturnType<typeof fetchDashboardPageByBusiness>;
+  filters: Parameters<typeof fetchDashboardPageByBusiness>[0]["filters"];
+  healthMap: Parameters<typeof Feed>[0]["healthMap"];
+  exportStatus: ExportStatus;
+  isOpeningNow: boolean;
+}) {
+  try {
+    const page = await feedPromise;
+    return (
+      <Feed
+        page={page}
+        filters={filters}
+        healthMap={healthMap}
+        exportStatus={exportStatus}
+        isOpeningNow={isOpeningNow}
+      />
+    );
+  } catch (err) {
+    if (err instanceof QuotaExceededError) {
+      return (
+        <SectionDegraded
+          message="You've reached your daily record limit. Resets at midnight UTC."
+          showRetry={false}
+        />
+      );
+    }
+    return <SectionDegraded message="Records are taking longer than usual" />;
+  }
 }
