@@ -6,7 +6,7 @@ import { useTransition } from "react";
 import { cn } from "@/lib/utils";
 
 const CHIP_BASE =
-  "inline-flex h-7 cursor-pointer select-none items-center rounded border px-2.5 font-mono text-[11px] uppercase tracking-[0.05em] transition-colors leading-none";
+  "inline-flex h-7 cursor-pointer select-none items-center rounded border px-2.5 font-mono text-[12px] uppercase tracking-[0.05em] transition-colors leading-none";
 const CHIP_OFF =
   "bg-card border-border text-foreground-2 hover:border-foreground-subtle hover:text-foreground";
 const CHIP_ON = "bg-accent border-accent text-accent-foreground";
@@ -48,13 +48,13 @@ export function OpeningNowBar({ daysWindow }: { daysWindow: number }) {
         <span className="text-sm font-semibold tracking-[-0.01em] text-foreground">
           Opening Now
         </span>
-        <span className="hidden font-mono text-[11px] uppercase tracking-[0.06em] text-foreground-muted sm:inline">
+        <span className="hidden font-mono text-[13px] uppercase tracking-[0.06em] text-foreground-muted sm:inline">
           · New issuances &amp; applications
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-foreground-muted">
+        <span className="mr-0.5 font-mono text-[12px] uppercase tracking-[0.06em] text-foreground-muted">
           Window
         </span>
         {WINDOW_OPTIONS.map((o) => (
@@ -72,7 +72,7 @@ export function OpeningNowBar({ daysWindow }: { daysWindow: number }) {
         </span>
         <Link
           href="/?all=1"
-          className="font-mono text-[11px] uppercase tracking-[0.06em] text-foreground-muted transition-colors hover:text-foreground"
+          className="font-mono text-[12px] uppercase tracking-[0.06em] text-foreground-muted transition-colors hover:text-foreground"
           prefetch={false}
         >
           View all

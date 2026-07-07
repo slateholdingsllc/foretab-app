@@ -74,7 +74,7 @@ export function BusinessCard({
           <div className="flex flex-wrap items-baseline gap-x-2">
             <p className="text-sm leading-relaxed text-foreground-2">{address}</p>
             {headline.in_state === false && headline.premises_state_code ? (
-              <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-foreground-muted">
+              <span className="font-mono text-[12px] uppercase tracking-[0.04em] text-foreground-muted">
                 {stateCodeToName(headline.premises_state_code)} premises
               </span>
             ) : null}
@@ -147,7 +147,7 @@ function CustomerStatusBadge({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.04em] ${cls}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.04em] ${cls}`}
     >
       {status}
     </span>

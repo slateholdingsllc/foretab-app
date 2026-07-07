@@ -47,9 +47,9 @@ export function Insights({
 function Card({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <section className="flex min-h-0 flex-col rounded-lg border border-border bg-card p-5">
-      <header className="mb-5 flex shrink-0 flex-col gap-1">
-        <span className="text-[16px] font-semibold tracking-[-0.015em] text-foreground">{title}</span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.07em] text-foreground-muted">{sub}</span>
+      <header className="mb-4 flex shrink-0 flex-col gap-1">
+        <span className="text-[17px] font-semibold tracking-[-0.015em] text-foreground">{title}</span>
+        <span className="font-mono text-[13px] uppercase tracking-[0.07em] text-foreground-muted">{sub}</span>
       </header>
       <div className="flex min-h-0 flex-1 flex-col">
         {children}
@@ -67,14 +67,14 @@ function Funnel({ data, workingCount }: { data: DispositionFunnelData; workingCo
     { label: "Won",      value: data.won,       won: true,           href: "/?tab=won" },
   ];
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-1 flex-col justify-evenly">
       {stages.map((s) => (
         <Link
           key={s.label}
           href={s.href}
           className="group flex flex-col gap-2 no-underline"
         >
-          <div className="flex items-baseline justify-between font-mono text-[12px] tracking-[0.03em]">
+          <div className="flex items-baseline justify-between font-mono text-[14px] tracking-[0.03em]">
             <span className="font-medium uppercase text-foreground-2 transition-colors group-hover:text-foreground">
               {s.label}
             </span>
@@ -82,7 +82,7 @@ function Funnel({ data, workingCount }: { data: DispositionFunnelData; workingCo
           </div>
           <div
             className={cn(
-              "h-[28px] rounded-sm transition-opacity group-hover:opacity-75",
+              "h-[40px] rounded-sm transition-opacity group-hover:opacity-75",
               s.won ? "bg-success" : "bg-accent",
             )}
             style={{ width: `${Math.max(4, (s.value / max) * 100)}%` }}
@@ -102,23 +102,23 @@ function WinRate({ rows }: { rows: SignalWinRateRow[] }) {
     Dormant: "bg-foreground-muted",
   };
   return (
-    <div className="flex flex-col gap-5 pt-1">
+    <div className="flex flex-1 flex-col justify-evenly pt-1">
       {rows.map((r) => {
         const pct = r.total > 0 ? Math.round((r.won / r.total) * 100) : 0;
         return (
           <Link
             key={r.signal}
             href={`/?tab=won&signal=${r.signal}`}
-            className="group flex flex-col gap-2 no-underline"
+            className="group flex flex-col gap-2.5 no-underline"
           >
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 font-mono text-[12px] font-medium uppercase tracking-[0.04em] text-foreground-2 transition-colors group-hover:text-foreground">
-                <SignalIcon signal={r.signal} className={cn("h-3 w-3", r.signal === "Dormant" ? "text-foreground-muted" : "text-primary")} />
+              <span className="inline-flex items-center gap-2 font-mono text-[14px] font-medium uppercase tracking-[0.04em] text-foreground-2 transition-colors group-hover:text-foreground">
+                <SignalIcon signal={r.signal} className={cn("h-3.5 w-3.5", r.signal === "Dormant" ? "text-foreground-muted" : "text-primary")} />
                 {r.signal}
               </span>
-              <span className="font-mono text-[14px] font-semibold text-foreground">{pct}%</span>
+              <span className="font-mono text-[16px] font-semibold text-foreground">{pct}%</span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded bg-surface-2">
+            <div className="h-4 overflow-hidden rounded bg-surface-2">
               <div
                 className={cn("h-full rounded transition-opacity group-hover:opacity-75", fill[r.signal])}
                 style={{ width: `${pct}%` }}
@@ -135,8 +135,8 @@ function Activity({ days }: { days: ActivityDay[] }) {
   const max = Math.max(...days.map((d) => d.count), 1);
   const peak = max;
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex h-48 items-end gap-[3px]">
+    <div className="flex flex-1 flex-col gap-3">
+      <div className="flex flex-1 min-h-[120px] items-end gap-[3px]">
         {days.map((d) => {
           const h = Math.max(3, (d.count / max) * 100);
           const isPeak = d.count === peak && peak > 0;
@@ -154,11 +154,11 @@ function Activity({ days }: { days: ActivityDay[] }) {
           );
         })}
       </div>
-      <div className="flex justify-between font-mono text-[11px] uppercase tracking-[0.05em] text-foreground-subtle">
+      <div className="flex justify-between font-mono text-[12px] uppercase tracking-[0.05em] text-foreground-subtle">
         <span>{days[0]?.date ?? ""}</span>
         <span>{days[days.length - 1]?.date ?? ""}</span>
       </div>
-      <div className="flex gap-4 font-mono text-[11px] tracking-[0.04em] text-foreground-muted">
+      <div className="flex gap-4 font-mono text-[12px] tracking-[0.04em] text-foreground-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-[9px] w-[9px] rounded-sm bg-accent" />Peak day
         </span>

@@ -85,11 +85,11 @@ function KpiTile({
   value: number | string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card px-5 py-5">
-      <div className="font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="rounded-lg border border-border bg-card px-5 py-4">
+      <div className="font-mono text-[14px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 text-[34px] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground">
+      <div className="mt-2 text-[36px] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground">
         {value}
       </div>
     </div>
