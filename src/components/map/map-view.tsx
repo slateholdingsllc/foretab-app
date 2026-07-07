@@ -1,8 +1,8 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { MapPin } from "@/lib/dashboard/types";
 import { stateCodeToName } from "@/lib/dashboard/state-names";
@@ -10,8 +10,6 @@ import { MapControls } from "./map-controls";
 
 // CartoDB Positron — clean neutral tiles, no API key required
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 // Haversine distance in miles between two lat/lng points
 function haversineDistance(
@@ -53,36 +51,86 @@ function RadiusCenterSetter({
   return null;
 }
 
+// Flies to the bounds of the current pin set whenever it changes after mount.
+// Used to auto-zoom after a ZIP radius fetch or clear.
+function MapAutoFit({ pins }: { pins: MapPin[] }) {
+  const map = useMap();
+  const isFirst = useRef(true);
+
+  useEffect(() => {
+    if (isFirst.current) {
+      isFirst.current = false;
+      return;
+    }
+    const placed = pins.filter((p) => p.lat !== null && p.lng !== null);
+    if (placed.length === 0) return;
+    const bounds = L.latLngBounds(placed.map((p) => [p.lat!, p.lng!] as [number, number]));
+    map.flyToBounds(bounds, { padding: [40, 40] as [number, number], maxZoom: 14 });
+  }, [pins, map]);
+
+  return null;
+}
+
+const MAP_PIN_CAP = 500;
+
 export function MapView({
   initialPins,
   placedCount: initialPlaced,
   unplacedCount: initialUnplaced,
+  onZipRadius,
+  onClearZipRadius,
+  isZipRadiusPending,
 }: {
   initialPins: MapPin[];
   placedCount: number;
   unplacedCount: number;
+  onZipRadius?: (zip: string, miles: number) => void;
+  onClearZipRadius?: () => void;
+  isZipRadiusPending?: boolean;
 }) {
   const [territory, setTerritory] = useState<"all" | "in" | "out">("all");
   const [radiusCenter, setRadiusCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusMiles, setRadiusMiles] = useState<number | null>(null);
+  // ZIP-based radius is handled server-side (get_map_pins p_center_zip/p_radius_miles).
+  // Track whether it's active so we can show the correct empty state + clear button.
+  const [zipRadiusActive, setZipRadiusActive] = useState(false);
+  const [zipRadiusMiles, setZipRadiusMiles] = useState<number | null>(null);
 
   const placedPins = useMemo(
     () => initialPins.filter((p) => p.lat !== null && p.lng !== null),
     [initialPins],
   );
 
+  function handleZipRadius(zip: string, miles: number) {
+    setZipRadiusActive(true);
+    setZipRadiusMiles(miles);
+    setRadiusCenter(null); // clear any right-click center
+    onZipRadius?.(zip, miles);
+  }
+
+  function handleClearRadius() {
+    setRadiusCenter(null);
+    setRadiusMiles(null);
+    if (zipRadiusActive) {
+      setZipRadiusActive(false);
+      setZipRadiusMiles(null);
+      onClearZipRadius?.();
+    }
+  }
+
   const visiblePins = useMemo(() => {
     let pins = placedPins;
     if (territory === "in") pins = pins.filter((p) => p.inState === true);
     else if (territory === "out") pins = pins.filter((p) => p.inState === false);
-    if (radiusCenter && radiusMiles !== null) {
+    // When ZIP radius is active, pins are already filtered server-side — skip haversine.
+    if (!zipRadiusActive && radiusCenter && radiusMiles !== null) {
       pins = pins.filter(
         (p) =>
           haversineDistance(radiusCenter, { lat: p.lat!, lng: p.lng! }) <= radiusMiles,
       );
     }
     return pins;
-  }, [placedPins, territory, radiusCenter, radiusMiles]);
+  }, [placedPins, territory, radiusCenter, radiusMiles, zipRadiusActive]);
 
   const unplacedFiltered = useMemo(() => {
     let pins = initialPins.filter((p) => p.lat === null || p.lng === null);
@@ -109,16 +157,29 @@ export function MapView({
         onTerritoryChange={setTerritory}
         radiusCenter={radiusCenter}
         onRadiusCenterChange={setRadiusCenter}
-        radiusMiles={radiusMiles}
+        radiusMiles={zipRadiusActive ? zipRadiusMiles : radiusMiles}
         onRadiusMilesChange={setRadiusMiles}
+        onClearRadius={handleClearRadius}
+        onZipRadius={handleZipRadius}
+        hasActiveRadius={zipRadiusActive || radiusCenter !== null}
+        isZipRadiusPending={isZipRadiusPending ?? false}
         placedCount={visiblePins.length}
         unplacedCount={unplacedFiltered.length}
+        atCap={initialPins.length >= MAP_PIN_CAP}
       />
 
-      {placedPins.length === 0 ? (
+      {zipRadiusActive && placedPins.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
+          No locations found near this ZIP. Try a larger radius or a different ZIP code.
+        </div>
+      ) : placedPins.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
           No geocoded locations found. Coordinates are populated as records are
           processed — check back after the next data refresh.
+        </div>
+      ) : visiblePins.length === 0 && radiusCenter !== null ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
+          No locations found near this ZIP. Try a larger radius or a different ZIP code.
         </div>
       ) : (
         <div className="relative flex-1">
@@ -126,9 +187,11 @@ export function MapView({
             {...mapProps}
             style={{ height: "100%", width: "100%" }}
             scrollWheelZoom
+            attributionControl={false}
           >
-            <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
+            <TileLayer url={TILE_URL} />
             <RadiusCenterSetter onSet={setRadiusCenter} />
+            <MapAutoFit pins={initialPins} />
             {visiblePins.map((pin) => (
               <Marker
                 key={pin.id}
@@ -178,7 +241,35 @@ export function MapView({
             ))}
           </MapContainer>
 
-          {radiusCenter && radiusMiles ? (
+          {/* Map attribution — required by CartoDB/OSM ToS, styled minimal */}
+          <div style={{ position: "absolute", bottom: 4, right: 8, zIndex: 1000, fontSize: 9, color: "#94a3b8", lineHeight: 1.2 }}>
+            ©{" "}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>OpenStreetMap</a>
+            {" "}contributors ©{" "}
+            <a href="https://carto.com/attributions" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>CARTO</a>
+          </div>
+
+          {zipRadiusActive && zipRadiusMiles ? (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 24,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 1000,
+                background: "rgba(255,255,255,0.9)",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                padding: "6px 14px",
+                fontSize: 12,
+                color: "#64748b",
+                backdropFilter: "blur(4px)",
+                pointerEvents: "none",
+              }}
+            >
+              Within {zipRadiusMiles} mi of ZIP
+            </div>
+          ) : radiusCenter && radiusMiles ? (
             <div
               style={{
                 position: "absolute",

@@ -94,6 +94,7 @@ export default async function MapRoute({
         initialPins={mapData.pins}
         placedCount={mapData.placedCount}
         unplacedCount={mapData.unplacedCount}
+        filters={filters}
       />
     </AppShell>
   );
