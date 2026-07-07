@@ -535,8 +535,6 @@ export async function fetchBusinessLicenseHistory(
 // Territory (in/out-of-state) and radius filtering happen client-side in
 // MapView so the initial fetch always returns all matching pins.
 
-export const MAP_PIN_LIMIT = 500;
-
 type RawMapPin = {
   record_id: string;
   business_id: string | null;
