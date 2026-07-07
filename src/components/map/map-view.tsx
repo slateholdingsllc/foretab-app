@@ -225,7 +225,7 @@ export function MapView({
                     ) : null}
                     {pin.businessName ? (
                       <a
-                        href={`/?q=${encodeURIComponent(pin.businessName)}`}
+                        href={`/?q=${encodeURIComponent(pin.businessName)}&all=1`}
                         style={{
                           fontSize: "12px",
                           color: "#4F7EEB",
