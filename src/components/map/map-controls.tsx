@@ -1,7 +1,6 @@
 "use client";
 
-import { useTransition, useState } from "react";
-import { lookupZipCenter } from "@/lib/rpc/feed";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const CHIP_BASE =
@@ -24,8 +23,13 @@ export function MapControls({
   onRadiusCenterChange,
   radiusMiles,
   onRadiusMilesChange,
+  onClearRadius,
+  onZipRadius,
+  hasActiveRadius,
+  isZipRadiusPending,
   placedCount,
   unplacedCount,
+  atCap,
 }: {
   territory: "all" | "in" | "out";
   onTerritoryChange: (v: "all" | "in" | "out") => void;
@@ -33,31 +37,26 @@ export function MapControls({
   onRadiusCenterChange: (c: { lat: number; lng: number } | null) => void;
   radiusMiles: number | null;
   onRadiusMilesChange: (m: number | null) => void;
+  onClearRadius: () => void;
+  onZipRadius: (zip: string, miles: number) => void;
+  hasActiveRadius: boolean;
+  isZipRadiusPending: boolean;
   placedCount: number;
   unplacedCount: number;
+  atCap?: boolean;
 }) {
   const [zip, setZip] = useState("");
-  const [zipError, setZipError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
-  function applyZip() {
-    setZipError(null);
-    startTransition(async () => {
-      const center = await lookupZipCenter(zip.trim());
-      if (!center) {
-        setZipError("No locations found for this ZIP.");
-        return;
-      }
-      onRadiusCenterChange(center);
-      if (radiusMiles === null) onRadiusMilesChange(10);
-    });
+  function applyZip(miles?: number) {
+    const z = zip.trim();
+    if (!/^\d{5}$/.test(z)) return;
+    const m = miles ?? radiusMiles ?? 10;
+    onZipRadius(z, m);
   }
 
   function clearRadius() {
-    onRadiusCenterChange(null);
-    onRadiusMilesChange(null);
+    onClearRadius();
     setZip("");
-    setZipError(null);
   }
 
   return (
@@ -95,7 +94,7 @@ export function MapControls({
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyZip(); } }}
           placeholder="ZIP"
           maxLength={5}
-          disabled={isPending}
+          disabled={isZipRadiusPending}
           className="h-7 w-20 rounded border border-input bg-background px-2 text-[13px] text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
         />
         {RADIUS_OPTIONS.map((o) => (
@@ -104,17 +103,19 @@ export function MapControls({
             type="button"
             onClick={() => {
               onRadiusMilesChange(radiusMiles === o.miles ? null : o.miles);
-              if (radiusMiles !== o.miles && !radiusCenter && zip.length === 5) applyZip();
+              if (zip.length === 5) applyZip(o.miles);
             }}
+            disabled={isZipRadiusPending}
             className={cn(
               CHIP_BASE,
-              radiusCenter && radiusMiles === o.miles ? CHIP_ON : CHIP_OFF,
+              radiusMiles === o.miles && hasActiveRadius ? CHIP_ON : CHIP_OFF,
+              "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            {o.label}
+            {isZipRadiusPending && radiusMiles === o.miles ? "…" : o.label}
           </button>
         ))}
-        {radiusCenter ? (
+        {hasActiveRadius ? (
           <button
             type="button"
             onClick={clearRadius}
@@ -122,9 +123,6 @@ export function MapControls({
           >
             Clear
           </button>
-        ) : null}
-        {zipError ? (
-          <span className="text-[12px] text-destructive">{zipError}</span>
         ) : null}
       </div>
 
@@ -147,7 +145,9 @@ export function MapControls({
           </span>
         </div>
         <span className="text-[12px] text-foreground-muted">
-          {placedCount.toLocaleString()} placed
+          {atCap && !hasActiveRadius
+            ? "Showing the 500 most recent"
+            : `${placedCount.toLocaleString()} placed`}
           {unplacedCount > 0 ? ` · ${unplacedCount.toLocaleString()} unplaced` : ""}
         </span>
       </div>
