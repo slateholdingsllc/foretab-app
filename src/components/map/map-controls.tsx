@@ -26,6 +26,7 @@ export function MapControls({
   onRadiusMilesChange,
   placedCount,
   unplacedCount,
+  atCap,
 }: {
   territory: "all" | "in" | "out";
   onTerritoryChange: (v: "all" | "in" | "out") => void;
@@ -35,6 +36,7 @@ export function MapControls({
   onRadiusMilesChange: (m: number | null) => void;
   placedCount: number;
   unplacedCount: number;
+  atCap?: boolean;
 }) {
   const [zip, setZip] = useState("");
   const [zipError, setZipError] = useState<string | null>(null);
@@ -147,7 +149,9 @@ export function MapControls({
           </span>
         </div>
         <span className="text-[12px] text-foreground-muted">
-          {placedCount.toLocaleString()} placed
+          {atCap && !radiusCenter
+            ? "Showing the 500 most recent"
+            : `${placedCount.toLocaleString()} placed`}
           {unplacedCount > 0 ? ` · ${unplacedCount.toLocaleString()} unplaced` : ""}
         </span>
       </div>

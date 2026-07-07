@@ -529,14 +529,23 @@ export async function fetchBusinessLicenseHistory(
 // ---------------------------------------------------------------------------
 // Public: fetchMapPins
 // ---------------------------------------------------------------------------
-// Returns a lightweight MapPin[] for the map tab. Calls get_feed with a
-// high p_limit cap, then does a secondary SELECT on locations for lat/lng
-// (coordinates are NOT in the feed_record composite type).
-//
-// Coordinate lookup is batched in chunks of 500 to avoid Supabase's 1000-row
-// .in() cap (see supabase-1000-row-cap memory).
+// Returns a lightweight MapPin[] for the map tab. Calls get_map_pins which
+// returns coordinates directly — no secondary location lookup needed.
+// Cap is 500 pins (most recent first), enforced by the RPC.
+// Territory (in/out-of-state) and radius filtering happen client-side in
+// MapView so the initial fetch always returns all matching pins.
 
-const MAP_PIN_LIMIT = 500; // 2000 Leaflet SVG markers stalls the browser; 500 is the UX sweet spot
+export const MAP_PIN_LIMIT = 500;
+
+type RawMapPin = {
+  record_id: string;
+  business_id: string | null;
+  business_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  premises_state_code: string | null;
+  in_state: boolean | null;
+};
 
 export async function fetchMapPins(filters: FilterState): Promise<{
   pins: MapPin[];
@@ -549,84 +558,55 @@ export async function fetchMapPins(filters: FilterState): Promise<{
   }
   const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
 
-  const filterParams = buildFilterParams(filters);
-  filterParams.p_state_ids = stateIds;
-
   const supabase = await createClient();
 
-  const { data, error } = await supabase.rpc("get_feed", {
-    ...filterParams,
-    p_limit: MAP_PIN_LIMIT,
-    p_offset: 0,
-    p_lead_type: undefined,
+  const { data, error } = await supabase.rpc("get_map_pins", {
+    p_state_ids: stateIds,
+    p_days_window: filters.daysWindow ?? 180,
+    p_license_record_type: filters.licenseTypes.length > 0 ? filters.licenseTypes : null,
+    p_signal_strength: filters.signalStrengths.length > 0 ? filters.signalStrengths : null,
+    p_business_archetype: filters.businessArchetypes.length > 0 ? filters.businessArchetypes : null,
+    p_city: filters.city || null,
+    p_zip: filters.zip || null,
+    p_in_state: null,       // territory handled client-side
+    p_center_zip: null,     // radius handled client-side
+    p_radius_miles: null,
   });
 
   if (error) {
-    console.error("[fetchMapPins] get_feed failed:", error);
+    console.error("[fetchMapPins] get_map_pins failed:", error);
     return { pins: [], placedCount: 0, unplacedCount: 0 };
   }
 
-  const rows = (data ?? []) as RawFeedRecord[];
-  if (rows.length === 0) return { pins: [], placedCount: 0, unplacedCount: 0 };
-
-  // Secondary lat/lng lookup — not in feed_record, must SELECT from locations.
-  const locationIds = Array.from(
-    new Set(rows.filter((r) => r.location_id).map((r) => r.location_id as string)),
-  );
-  const coordMap = new Map<string, { lat: number; lng: number }>();
-  for (let i = 0; i < locationIds.length; i += 500) {
-    const batch = locationIds.slice(i, i + 500);
-    const { data: locData } = await supabase
-      .from("locations")
-      .select("id, latitude, longitude")
-      .in("id", batch);
-    for (const loc of (locData ?? []) as Array<{
-      id: string;
-      latitude: number | null;
-      longitude: number | null;
-    }>) {
-      if (loc.latitude !== null && loc.longitude !== null) {
-        coordMap.set(loc.id, { lat: loc.latitude, lng: loc.longitude });
-      }
-    }
-  }
-
-  const pageStateIds = Array.from(new Set(rows.map((r) => r.state_id)));
-  const stateCodeMap = await fetchStateCodeMap(pageStateIds);
-
-  const businessIds = Array.from(
-    new Set(rows.filter((r) => r.business_id).map((r) => r.business_id as string)),
-  );
-  const dispositionMap = await fetchDispositionsByBusinessId(businessIds);
+  const rows = (data ?? []) as RawMapPin[];
 
   let placedCount = 0;
   let unplacedCount = 0;
 
   const pins: MapPin[] = rows.map((raw) => {
-    const stateCode = stateCodeMap.get(raw.state_id) ?? null;
-    const coords = raw.location_id ? coordMap.get(raw.location_id) : undefined;
-    if (coords) placedCount++;
+    const placed = raw.latitude !== null && raw.longitude !== null;
+    if (placed) placedCount++;
     else unplacedCount++;
 
     return {
-      id: raw.id,
+      id: raw.record_id,
       businessId: raw.business_id,
       businessName: raw.business_name,
-      locationId: raw.location_id,
-      lat: coords?.lat ?? null,
-      lng: coords?.lng ?? null,
+      locationId: null,
+      lat: raw.latitude,
+      lng: raw.longitude,
       premisesStateCode: raw.premises_state_code,
       inState: raw.in_state,
-      licenseStateCode: stateCode,
-      signalStrength: raw.signal_strength,
-      licenseRecordType: raw.license_record_type,
-      city: raw.location_city,
-      zip: raw.location_zip,
-      disposition: raw.business_id ? (dispositionMap.get(raw.business_id) ?? null) : null,
+      licenseStateCode: null,
+      signalStrength: null,
+      licenseRecordType: null,
+      city: null,
+      zip: null,
+      disposition: null,
     };
   });
 
-  void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "get_feed" })).catch(() => {});
+  void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "get_map_pins" })).catch(() => {});
 
   return { pins, placedCount, unplacedCount };
 }

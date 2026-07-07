@@ -5,6 +5,16 @@ const config: NextConfig = {
   // typedRoutes intentionally disabled — we redirect to user-supplied strings
   // (e.g. ?next=<path>) which can't be statically typed. Enable later if we
   // add a router helper that validates paths at the boundary.
+  experimental: {
+    // Cache dynamic RSC routes for 30 seconds client-side so switching between
+    // Worklist / Map / Pipeline tabs feels instant when revisited within that window.
+    // Each unique URL (different filter params) gets its own cache entry, so
+    // filter changes always trigger a fresh fetch.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+  },
 };
 
 export default config;

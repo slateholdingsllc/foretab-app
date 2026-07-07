@@ -53,6 +53,8 @@ function RadiusCenterSetter({
   return null;
 }
 
+const MAP_PIN_CAP = 500;
+
 export function MapView({
   initialPins,
   placedCount: initialPlaced,
@@ -113,12 +115,17 @@ export function MapView({
         onRadiusMilesChange={setRadiusMiles}
         placedCount={visiblePins.length}
         unplacedCount={unplacedFiltered.length}
+        atCap={initialPins.length >= MAP_PIN_CAP}
       />
 
       {placedPins.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
           No geocoded locations found. Coordinates are populated as records are
           processed — check back after the next data refresh.
+        </div>
+      ) : visiblePins.length === 0 && radiusCenter !== null ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
+          No locations found near this ZIP. Try a larger radius or a different ZIP code.
         </div>
       ) : (
         <div className="relative flex-1">
