@@ -241,6 +241,14 @@ export function MapView({
             ))}
           </MapContainer>
 
+          {/* Map attribution — required by CartoDB/OSM ToS, styled minimal */}
+          <div style={{ position: "absolute", bottom: 4, right: 8, zIndex: 1000, fontSize: 9, color: "#94a3b8", lineHeight: 1.2 }}>
+            ©{" "}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>OpenStreetMap</a>
+            {" "}contributors ©{" "}
+            <a href="https://carto.com/attributions" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>CARTO</a>
+          </div>
+
           {zipRadiusActive && zipRadiusMiles ? (
             <div
               style={{
