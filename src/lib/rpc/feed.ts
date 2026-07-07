@@ -532,8 +532,9 @@ export async function fetchBusinessLicenseHistory(
 // Returns a lightweight MapPin[] for the map tab. Calls get_map_pins which
 // returns coordinates directly — no secondary location lookup needed.
 // Cap is 500 pins (most recent first), enforced by the RPC.
-// Territory (in/out-of-state) and radius filtering happen client-side in
-// MapView so the initial fetch always returns all matching pins.
+// Territory (in/out-of-state) filtering happens client-side in MapView.
+// ZIP radius search is server-side: pass opts.centerZip + opts.radiusMiles
+// to let the RPC handle geography (called as a server action from MapPageClient).
 
 type RawMapPin = {
   record_id: string;
@@ -545,7 +546,10 @@ type RawMapPin = {
   in_state: boolean | null;
 };
 
-export async function fetchMapPins(filters: FilterState): Promise<{
+export async function fetchMapPins(
+  filters: FilterState,
+  opts?: { centerZip?: string; radiusMiles?: number },
+): Promise<{
   pins: MapPin[];
   placedCount: number;
   unplacedCount: number;
@@ -566,9 +570,9 @@ export async function fetchMapPins(filters: FilterState): Promise<{
     p_business_archetype: filters.businessArchetypes.length > 0 ? filters.businessArchetypes : null,
     p_city: filters.city || null,
     p_zip: filters.zip || null,
-    p_in_state: null,       // territory handled client-side
-    p_center_zip: null,     // radius handled client-side
-    p_radius_miles: null,
+    p_in_state: null,
+    p_center_zip: opts?.centerZip ?? null,
+    p_radius_miles: opts?.radiusMiles ?? null,
   });
 
   if (error) {
