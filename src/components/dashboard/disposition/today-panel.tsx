@@ -36,7 +36,7 @@ export function TodayPanel({
       <header className="flex items-center gap-2.5 border-b border-border px-[18px] py-3.5">
         <span className="h-[7px] w-[7px] rounded-full bg-accent shadow-[0_0_0_3px_var(--color-accent-tint)]" />
         <span className="text-sm font-medium tracking-[-0.01em] text-foreground">Today</span>
-        <span className="ml-auto font-mono text-[12px] uppercase tracking-[0.06em] text-foreground-muted">
+        <span className="ml-auto font-mono text-[13px] uppercase tracking-[0.06em] text-foreground-muted">
           {dateLabel}
         </span>
       </header>
@@ -85,7 +85,7 @@ function Section({
 }) {
   return (
     <div className="px-[18px] py-3.5">
-      <div className="mb-3 flex items-center justify-between font-mono text-[12px] uppercase tracking-[0.08em] text-foreground-muted">
+      <div className="mb-3 flex items-center justify-between font-mono text-[13px] uppercase tracking-[0.08em] text-foreground-muted">
         <span>{title}</span>
         <div className="flex items-center gap-2">
           <span className="text-foreground-2">{count}</span>
