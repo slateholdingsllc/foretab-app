@@ -1,8 +1,8 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { MapPin } from "@/lib/dashboard/types";
 import { stateCodeToName } from "@/lib/dashboard/state-names";
@@ -10,8 +10,6 @@ import { MapControls } from "./map-controls";
 
 // CartoDB Positron — clean neutral tiles, no API key required
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 // Haversine distance in miles between two lat/lng points
 function haversineDistance(
@@ -50,6 +48,26 @@ function RadiusCenterSetter({
       onSet({ lat: e.latlng.lat, lng: e.latlng.lng });
     },
   });
+  return null;
+}
+
+// Flies to the bounds of the current pin set whenever it changes after mount.
+// Used to auto-zoom after a ZIP radius fetch or clear.
+function MapAutoFit({ pins }: { pins: MapPin[] }) {
+  const map = useMap();
+  const isFirst = useRef(true);
+
+  useEffect(() => {
+    if (isFirst.current) {
+      isFirst.current = false;
+      return;
+    }
+    const placed = pins.filter((p) => p.lat !== null && p.lng !== null);
+    if (placed.length === 0) return;
+    const bounds = L.latLngBounds(placed.map((p) => [p.lat!, p.lng!] as [number, number]));
+    map.flyToBounds(bounds, { padding: [40, 40] as [number, number], maxZoom: 14 });
+  }, [pins, map]);
+
   return null;
 }
 
@@ -169,9 +187,11 @@ export function MapView({
             {...mapProps}
             style={{ height: "100%", width: "100%" }}
             scrollWheelZoom
+            attributionControl={false}
           >
-            <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
+            <TileLayer url={TILE_URL} />
             <RadiusCenterSetter onSet={setRadiusCenter} />
+            <MapAutoFit pins={initialPins} />
             {visiblePins.map((pin) => (
               <Marker
                 key={pin.id}
