@@ -48,11 +48,15 @@ export async function createCheckoutSession(formData: FormData): Promise<Checkou
 
   const { data: customer, error: customerError } = await supabase
     .from("customers")
-    .select("id, email, billing_email, billing_email_verified_at")
+    .select("id, email, billing_email, billing_email_verified_at, checkout_acknowledgment_at")
     .eq("auth_user_id", user.id)
     .single();
   if (customerError || !customer) {
     return { ok: false, error: "Customer profile not found." };
+  }
+
+  if (!customer.checkout_acknowledgment_at) {
+    return { ok: false, error: "Please confirm the acknowledgment first." };
   }
 
   const stripe = getStripe();
@@ -66,6 +70,7 @@ export async function createCheckoutSession(formData: FormData): Promise<Checkou
     .from("subscriptions")
     .select("stripe_customer_id")
     .eq("customer_id", customer.id)
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
