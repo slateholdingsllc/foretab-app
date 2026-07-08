@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/utils";
 
 /**
  * Handles the return from:
@@ -37,7 +38,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  const next = safeNextPath(searchParams.get("next") ?? "/");
 
   if (!code) {
     // Implicit/OTP flow: hand off to the client page so it can read the
