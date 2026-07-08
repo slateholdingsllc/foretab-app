@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type LogRejectionInput = {
   declaredState: string;
-  gate: "signup" | "state_selection";
+  gate: "signup" | "state_selection" | "finish_signup";
   authUserId?: string | null;
   customerId?: string | null;
 };
