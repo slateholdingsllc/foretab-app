@@ -7,11 +7,8 @@ import { logGateRejection } from "@/lib/gate-rejections";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const TRIAL_LENGTH_DAYS = 7;
-// TODO(configurable-not-hardcoded): when public.app_config grows a
-// 'trial_length_days' key, move this lookup there. Currently the only
-// place trial length lives in app code. See memory:
-// configurable-not-hardcoded.
+// Trial length is now owned by the provision_trial() DB function;
+// app code no longer hardcodes it (satisfies configurable-not-hardcoded).
 
 // Default saved views seeded at trial signup. Shape mirrors FilterState
 // (see src/lib/dashboard/types.ts) so the Task 16 saved-views menu can
@@ -203,49 +200,72 @@ export async function selectTrialState(formData: FormData): Promise<TrialActionR
     }
   }
 
-  const expiresAt = new Date(
-    Date.now() + TRIAL_LENGTH_DAYS * 24 * 60 * 60 * 1000,
-  ).toISOString();
-
-  // Create trial.
-  const { data: trial, error: trialError } = await admin
-    .from("trials")
-    .insert({
-      customer_id: customer.id,
-      state_id: trialStateId,
-      expires_at: expiresAt,
-    })
-    .select("id")
-    .single();
-
-  if (trialError || !trial) {
-    return { ok: false, error: trialError?.message ?? "Failed to create trial." };
-  }
-
-  // Grant state access.
-  const { error: csError } = await admin.from("customer_states").insert({
-    customer_id: customer.id,
-    state_id: trialStateId,
-    granted_via: "trial",
-    trial_id: trial.id,
+  // C6: provision_trial() atomically inserts trials + customer_states.
+  // Replaces the sequential INSERT pair; eliminates the window where the
+  // trial row exists but customer_states doesn't (a crash between them
+  // left the customer with no state access).
+  const { error: rpcError } = await admin.rpc("provision_trial", {
+    p_customer_id: customer.id,
+    p_state_id: trialStateId,
   });
 
-  if (csError) {
-    return { ok: false, error: csError.message };
+  if (rpcError) {
+    const code = rpcError.code;
+
+    if (code === "P0003") {
+      // Excluded state — the state is in the geographic exclusion list.
+      return {
+        ok: false,
+        error:
+          "Foretab doesn't currently operate in that state. Email hi@foretab.com to be notified when we expand.",
+      };
+    }
+    if (code === "P0004") {
+      // Trial already used (prior expired trial) — send to plans.
+      redirect("/trial-expired?plans=1");
+    }
+    if (code === "P0005") {
+      // State not currently for sale — re-render picker.
+      return {
+        ok: false,
+        error: "That state isn't currently available. Pick a different state.",
+      };
+    }
+    if (code === "P0006") {
+      // Missing business_state on the customers row — route to finish-signup.
+      redirect("/auth/finish-signup");
+    }
+    if (code === "23505") {
+      // Concurrent double-click race: another in-flight request already created
+      // the trial. Re-read and treat as success if we find the row.
+      const { data: raceTrial } = await admin
+        .from("trials")
+        .select("id")
+        .eq("customer_id", customer.id)
+        .maybeSingle();
+      if (raceTrial) {
+        revalidatePath("/", "layout");
+        redirect("/");
+      }
+    }
+
+    return { ok: false, error: rpcError.message };
   }
 
-  // Seed default saved filters. customer_saved_filters does allow
-  // authenticated INSERTs on own rows, but we use admin here for
-  // consistency with the rest of the provisioning block and to avoid
-  // a partial-state surprise if RLS happens to reject one of the rows.
+  // Seed default saved filters (best-effort — don't fail the trial on filter errors).
   const filterRows = DEFAULT_FILTERS.map((f) => ({
     customer_id: customer.id,
     name: f.name,
     filter_config: f.filter_config,
     is_default: true,
   }));
-  await admin.from("customer_saved_filters").insert(filterRows);
-  // Don't fail the trial flow on saved-filter errors — they're nice-to-have.
+  const { error: filterError } = await admin.from("customer_saved_filters").insert(filterRows);
+  if (filterError) {
+    console.error(
+      "[selectTrialState] Failed to seed default filters — trial active but filters missing:",
+      JSON.stringify({ customerId: customer.id, message: filterError.message }),
+    );
+  }
 
   revalidatePath("/", "layout");
   redirect("/");
