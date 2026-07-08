@@ -303,8 +303,12 @@ function extractSubscriptionId(invoice: Stripe.Invoice): string | null {
 
 /**
  * Expand customer_states to every sellable state for an all_access
- * subscription. Idempotent — ON CONFLICT DO NOTHING on the unique
- * (customer_id, state_id).
+ * subscription. Idempotent.
+ *
+ * ignoreDuplicates:true would silently skip trial-granted rows, leaving
+ * them as granted_via='trial' even after conversion. On trial expiry the
+ * customer would lose access to a paid state. Instead: upgrade trial rows
+ * to subscription, then INSERT only genuinely new ones.
  */
 async function expandCustomerStatesToAllAccess(args: {
   supabase: SupabaseClient;
@@ -316,17 +320,46 @@ async function expandCustomerStatesToAllAccess(args: {
     .select("id");
   if (!states || states.length === 0) return;
 
-  const rows = states.map((s: { id: string }) => ({
-    customer_id: args.customerId,
-    state_id: s.id,
-    granted_via: "subscription",
-    subscription_id: args.subscriptionId,
-  }));
+  // Read existing grants to compute diff.
+  const { data: existingRows } = await args.supabase
+    .from("customer_states")
+    .select("id, state_id, granted_via")
+    .eq("customer_id", args.customerId);
 
-  // Use upsert with onConflict to ignore duplicates (existing state grants
-  // from the trial, etc.)
-  await args.supabase.from("customer_states").upsert(rows, {
-    onConflict: "customer_id,state_id",
-    ignoreDuplicates: true,
-  });
+  const existing = (existingRows ?? []) as Array<{
+    id: string;
+    state_id: string;
+    granted_via: string;
+  }>;
+
+  const existingSubStateIds = new Set(
+    existing.filter((r) => r.granted_via === "subscription").map((r) => r.state_id),
+  );
+  const trialRows = existing.filter((r) => r.granted_via === "trial");
+  const trialStateIds = new Set(trialRows.map((r) => r.state_id));
+
+  // Upgrade trial rows → subscription so they survive trial expiry.
+  if (trialRows.length > 0) {
+    await args.supabase
+      .from("customer_states")
+      .update({ granted_via: "subscription", subscription_id: args.subscriptionId })
+      .in(
+        "id",
+        trialRows.map((r) => r.id),
+      );
+  }
+
+  // Insert states not already granted via subscription or trial.
+  const toInsert = states
+    .filter((s: { id: string }) => !existingSubStateIds.has(s.id) && !trialStateIds.has(s.id))
+    .map((s: { id: string }) => ({
+      customer_id: args.customerId,
+      state_id: s.id,
+      granted_via: "subscription",
+      subscription_id: args.subscriptionId,
+    }));
+
+  if (toInsert.length > 0) {
+    await args.supabase.from("customer_states").insert(toInsert);
+  }
 }
