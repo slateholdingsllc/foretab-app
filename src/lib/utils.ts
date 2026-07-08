@@ -14,3 +14,11 @@ export function cn(...inputs: ClassValue[]) {
 export function safeNextPath(raw: string): string {
   return /^\/(?!\/)/.test(raw) ? raw : "/";
 }
+
+// PostgREST returns embedded FK relations as an array or as a plain object
+// depending on whether it detects the cardinality. This helper normalises
+// both shapes so callers don't need to branch on Array.isArray every time.
+export function firstRow<T>(rel: T[] | T | null | undefined): T | null {
+  if (rel == null) return null;
+  return Array.isArray(rel) ? (rel[0] ?? null) : rel;
+}
