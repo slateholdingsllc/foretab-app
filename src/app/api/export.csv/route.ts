@@ -4,6 +4,7 @@ import { parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
 import {
   TRIAL_EXPORT_CUMULATIVE_CAP,
   fetchAllRecordsForExport,
+  fetchCumulativeExportRowCount,
 } from "@/lib/dashboard/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,14 +20,17 @@ export const dynamic = "force-dynamic";
  * Caps:
  *   - Trial customers (current_tier IS NULL with an active trial):
  *     TRIAL_EXPORT_CUMULATIVE_CAP rows cumulatively over the trial.
- *     The log_csv_export() RPC atomically reads remaining + logs the
- *     grant before the fetch so a concurrent request can't double-spend.
+ *     log_csv_export() is called AFTER fetching with the actual row count
+ *     so the audit records reality (not the cap). The advisory lock inside
+ *     the RPC prevents concurrent double-spend; if the returned budget is
+ *     less than records fetched, we slice before delivering.
  *   - Paid customers / internal: unlimited per Terms §7.
  *     log_csv_export() still audits the actual row count.
  *
  * C8: log_csv_export() RPC replaces the manual csv_export_log INSERT.
  *   - Paid/internal: fetch first (no limit), then call RPC with actual count.
- *   - Trial: call RPC first to atomically get budget (0 → 403), then fetch.
+ *   - Trial: pre-check cumulative → fetch with remaining limit → call RPC
+ *     with actual count → slice to approved budget if race occurred.
  *   In both cases the audit write happens BEFORE CSV generation.
  */
 export async function GET(request: NextRequest) {
@@ -79,23 +83,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // C8 trial path: call log_csv_export BEFORE fetching.
-    // RPC atomically reads remaining budget, logs min(remaining, cap), returns budget.
-    // Budget = 0 means cap exhausted.
-    const { data: budget, error: logError } = await supabase.rpc("log_csv_export", {
-      p_customer_id: customer.id,
-      p_filter_config: filters as unknown as Record<string, unknown>,
-      p_row_count: TRIAL_EXPORT_CUMULATIVE_CAP,
-    });
-    if (logError) {
-      console.error("[csv export] log_csv_export (trial) failed:", logError);
-      return NextResponse.json(
-        { error: "Could not log export — aborting to preserve audit trail." },
-        { status: 500 },
-      );
-    }
-    const trialBudget = budget as number;
-    if (trialBudget === 0) {
+    // Pre-check: fast 403 if budget is already fully consumed.
+    const alreadyExported = await fetchCumulativeExportRowCount(customer.id);
+    const remaining = TRIAL_EXPORT_CUMULATIVE_CAP - alreadyExported;
+    if (remaining <= 0) {
       return NextResponse.json(
         {
           error: `Trial export limit reached (${TRIAL_EXPORT_CUMULATIVE_CAP} records). Upgrade to a paid plan for higher limits.`,
@@ -105,11 +96,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const records = await fetchAllRecordsForExport({ filters, limit: trialBudget });
+    // Fetch records bounded by remaining budget (not the full cap).
+    // This ensures we never fetch more than could possibly be delivered.
+    const allRecords = await fetchAllRecordsForExport({ filters, limit: remaining });
+
+    // Log actual row count via RPC. The advisory lock prevents concurrent
+    // double-spend. Returns the approved budget (min of remaining, p_row_count).
+    // If another request consumed budget between our pre-check and now,
+    // budget < allRecords.length and we slice before delivering.
+    const { data: budget, error: logError } = await supabase.rpc("log_csv_export", {
+      p_customer_id: customer.id,
+      p_filter_config: filters as unknown as Record<string, unknown>,
+      p_row_count: allRecords.length,
+    });
+    if (logError) {
+      console.error("[csv export] log_csv_export (trial) failed:", logError);
+      return NextResponse.json(
+        { error: "Could not log export — aborting to preserve audit trail." },
+        { status: 500 },
+      );
+    }
+    const approvedBudget = budget as number;
+    if (approvedBudget === 0) {
+      return NextResponse.json(
+        {
+          error: `Trial export limit reached (${TRIAL_EXPORT_CUMULATIVE_CAP} records). Upgrade to a paid plan for higher limits.`,
+          cap: TRIAL_EXPORT_CUMULATIVE_CAP,
+        },
+        { status: 403 },
+      );
+    }
+
+    // Slice to approved budget (handles concurrent over-spend race).
+    const records = allRecords.slice(0, approvedBudget);
     const csv = serializeRecordsToCsv(records);
     const filename = buildCsvFilename();
 
-    const alreadyExportedBefore = TRIAL_EXPORT_CUMULATIVE_CAP - trialBudget;
     return new NextResponse(csv, {
       status: 200,
       headers: {
@@ -117,7 +139,7 @@ export async function GET(request: NextRequest) {
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Cache-Control": "no-store",
         "X-Foretab-Export-Rows": String(records.length),
-        "X-Foretab-Trial-Exported": String(alreadyExportedBefore + records.length),
+        "X-Foretab-Trial-Exported": String(alreadyExported + records.length),
         "X-Foretab-Trial-Cap": String(TRIAL_EXPORT_CUMULATIVE_CAP),
       },
     });
