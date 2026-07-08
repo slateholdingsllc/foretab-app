@@ -8,6 +8,7 @@ import { getExcludedBusinessStates } from "@/lib/excluded-states";
 import { logGateRejection } from "@/lib/gate-rejections";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/utils";
 
 /**
  * Signup flow version flag. Per the durable-fix spec 2026-05-30:
@@ -349,7 +350,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
 export async function signIn(formData: FormData): Promise<AuthActionResult> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/");
+  const next = safeNextPath(String(formData.get("next") ?? ""));
 
   if (!email || !password) {
     return { ok: false, error: "Email and password are required." };
@@ -360,11 +361,11 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/", "layout");
-  redirect(next || "/");
+  redirect(next);
 }
 
 export async function signInWithGoogle(formData: FormData): Promise<AuthActionResult> {
-  const next = String(formData.get("next") ?? "/");
+  const next = safeNextPath(String(formData.get("next") ?? ""));
 
   // business_state is present when invoked from /signup (SignupGate sets it).
   // Not present on /login (returning user — gate doesn't apply). Validate only

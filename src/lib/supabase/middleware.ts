@@ -55,7 +55,9 @@ export async function updateSession(request: NextRequest) {
     "/auth/finalize",
     "/admin",
   ];
-  const isPublic = publicPaths.some((p) => request.nextUrl.pathname.startsWith(p));
+  const isPublic = publicPaths.some(
+    (p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(p + "/"),
+  );
   const isRoot = request.nextUrl.pathname === "/";
 
   if (!user && !isPublic && !isRoot) {
