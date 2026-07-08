@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sendRenewalReminder } from "@/lib/email/renewal-reminder";
 import type { BillingPeriod, Tier } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { firstRow } from "@/lib/utils";
 
 /**
  * CO SB25-145 / Terms § 8 — Monthly subscriber anniversary reminder.
@@ -114,9 +115,12 @@ export async function GET(request: Request) {
     status: string;
     current_period_end: string;
     created_at: string;
-    customer: Array<{ id: string; email: string; billing_email: string | null }> | null;
+    customer:
+      | Array<{ id: string; email: string; billing_email: string | null }>
+      | { id: string; email: string; billing_email: string | null }
+      | null;
   }>) {
-    const customerRow = c.customer?.[0] ?? null;
+    const customerRow = firstRow(c.customer);
     const enrolledAt = new Date(c.created_at);
 
     // Find which anniversary year (if any) falls in the reminder window today.
@@ -146,25 +150,58 @@ export async function GET(request: Request) {
 
     const anniversaryIso = anniversaryDate.toISOString();
 
-    if (!testMode) {
-      // Dedup: skip if we already sent for this (subscription, anniversary, type)
-      const { data: existing } = await supabase
-        .from("subscription_renewal_reminders")
-        .select("id")
-        .eq("subscription_id", c.id)
-        .eq("reminder_period_end", anniversaryIso)
-        .eq("reminder_type", "monthly_anniversary")
-        .maybeSingle();
-
-      if (existing) {
-        skipped += 1;
-        continue;
-      }
-    }
-
     const recipientEmail = customerRow?.billing_email ?? customerRow?.email;
     if (!recipientEmail) {
       errors.push({ subscription_id: c.id, error: "No recipient email on customer" });
+      continue;
+    }
+
+    if (testMode) {
+      // Test mode: send without writing a dedup row.
+      try {
+        await sendRenewalReminder({
+          recipientEmail,
+          tier: c.tier,
+          billingPeriod: c.billing_period,
+          renewalDate: c.current_period_end,
+          stripeCustomerId: c.stripe_customer_id,
+          stripeSubscriptionId: c.stripe_subscription_id,
+        });
+        sent += 1;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push({ subscription_id: c.id, error: message });
+      }
+      continue;
+    }
+
+    // C9: insert dedup row BEFORE sending. On unique-constraint violation
+    // (23505) this cycle was already handled — skip. On send failure we
+    // DELETE the row so the next run retries. Preferred failure mode is a
+    // missed email (recoverable) not a duplicate legal notice.
+    const { error: insertError } = await supabase
+      .from("subscription_renewal_reminders")
+      .insert({
+        subscription_id: c.id,
+        reminder_period_end: anniversaryIso,
+        reminder_type: "monthly_anniversary",
+        recipient_email: recipientEmail,
+        resend_message_id: "pending",
+      });
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        skipped += 1;
+        continue;
+      }
+      console.error(
+        `[cron/monthly-anniversary] Dedup insert failed for ${c.id}:`,
+        insertError,
+      );
+      errors.push({
+        subscription_id: c.id,
+        error: `dedup insert: ${insertError.message}`,
+      });
       continue;
     }
 
@@ -178,35 +215,33 @@ export async function GET(request: Request) {
         stripeSubscriptionId: c.stripe_subscription_id,
       });
 
-      if (!testMode) {
-        const { error: insertError } = await supabase
-          .from("subscription_renewal_reminders")
-          .insert({
-            subscription_id: c.id,
-            reminder_period_end: anniversaryIso,
-            reminder_type: "monthly_anniversary",
-            recipient_email: recipientEmail,
-            resend_message_id: result.id,
-          });
-
-        if (insertError) {
-          console.error(
-            `[cron/monthly-anniversary] Email sent for ${c.id} but dedup insert failed:`,
-            insertError,
-          );
-          errors.push({
-            subscription_id: c.id,
-            error: `dedup insert failed: ${insertError.message}`,
-          });
-        }
-      }
+      // Update the pending sentinel with the real Resend message ID.
+      await supabase
+        .from("subscription_renewal_reminders")
+        .update({ resend_message_id: result.id })
+        .eq("subscription_id", c.id)
+        .eq("reminder_period_end", anniversaryIso)
+        .eq("reminder_type", "monthly_anniversary");
 
       sent += 1;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[cron/monthly-anniversary] Failed for subscription ${c.id}:`, message);
+      // Remove the dedup row so the next cron run retries.
+      await supabase
+        .from("subscription_renewal_reminders")
+        .delete()
+        .eq("subscription_id", c.id)
+        .eq("reminder_period_end", anniversaryIso)
+        .eq("reminder_type", "monthly_anniversary");
       errors.push({ subscription_id: c.id, error: message });
     }
+  }
+
+  if (errors.length > 0 && errors.length === candidates.length) {
+    console.error(
+      `[cron/monthly-anniversary] ALL ${candidates.length} candidates failed — check Resend and DB health`,
+    );
   }
 
   return NextResponse.json({

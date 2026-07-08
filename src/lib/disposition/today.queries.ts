@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { HOT_LIKE_SIGNALS, WARM_LIKE_SIGNALS } from "./insights.queries";
+import { firstRow } from "@/lib/utils";
 import type {
   DueFollowUp,
   NewHighPriorityLead,
@@ -112,7 +113,7 @@ export async function getDueFollowUpsForToday(
         }
       | null;
   }>).map((r) => {
-    const b = Array.isArray(r.businesses) ? r.businesses[0] : r.businesses;
+    const b = firstRow(r.businesses);
     return {
       disposition_id: r.id,
       business_id: r.business_id,

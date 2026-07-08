@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sendRenewalReminder } from "@/lib/email/renewal-reminder";
 import type { BillingPeriod, Tier } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { firstRow } from "@/lib/utils";
 
 /**
  * Daily cron: find annual subscriptions whose current_period_end is
@@ -47,8 +48,7 @@ export async function GET(request: Request) {
   ).toISOString();
 
   // Candidates: annual subscriptions whose current_period_end is in window.
-  // We don't filter dedup here — we check per-row below to keep the query
-  // simple. Inner-join customers to get email + billing_email.
+  // Inner-join customers to get email + billing_email.
   const { data: candidates, error: queryError } = await supabase
     .from("subscriptions")
     .select(
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
     .lte("current_period_end", windowEnd);
 
   if (queryError) {
-    console.error("[cron] Subscription query failed:", queryError);
+    console.error("[cron/renewal] Subscription query failed:", queryError);
     return NextResponse.json({ ok: false, error: queryError.message }, { status: 500 });
   }
 
@@ -89,10 +89,6 @@ export async function GET(request: Request) {
   let skipped = 0;
   const errors: Array<{ subscription_id: string; error: string }> = [];
 
-  // PostgREST returns embedded relations as an array even for many-to-one
-  // FKs. The subscriptions→customers FK is many-to-one, so customer[0]
-  // is the single related row. Cast to unknown first to override TS's
-  // inferred array shape for the embedded relation.
   for (const c of candidates as unknown as Array<{
     id: string;
     stripe_subscription_id: string;
@@ -100,26 +96,42 @@ export async function GET(request: Request) {
     tier: Tier;
     billing_period: BillingPeriod;
     current_period_end: string;
-    customer: Array<{ id: string; email: string; billing_email: string | null }> | null;
+    customer:
+      | Array<{ id: string; email: string; billing_email: string | null }>
+      | { id: string; email: string; billing_email: string | null }
+      | null;
   }>) {
-    const customerRow = c.customer?.[0] ?? null;
-    // Dedup: skip if we already sent a reminder for this (subscription, period_end, type)
-    const { data: existing } = await supabase
-      .from("subscription_renewal_reminders")
-      .select("id")
-      .eq("subscription_id", c.id)
-      .eq("reminder_period_end", c.current_period_end)
-      .eq("reminder_type", "annual_renewal")
-      .maybeSingle();
-
-    if (existing) {
-      skipped += 1;
-      continue;
-    }
+    const customerRow = firstRow(c.customer);
 
     const recipientEmail = customerRow?.billing_email ?? customerRow?.email;
     if (!recipientEmail) {
       errors.push({ subscription_id: c.id, error: "No recipient email on customer" });
+      continue;
+    }
+
+    // C9: insert dedup row BEFORE sending. If the insert fails with a
+    // unique-constraint violation (23505) the email was already sent this
+    // cycle — skip. If we crash after inserting but before sending the
+    // email, the next run skips safely. If the send itself fails we DELETE
+    // the row so the next run can retry. Preferred failure mode is a missed
+    // email (recoverable) not a duplicate legal notice.
+    const { error: insertError } = await supabase
+      .from("subscription_renewal_reminders")
+      .insert({
+        subscription_id: c.id,
+        reminder_period_end: c.current_period_end,
+        reminder_type: "annual_renewal",
+        recipient_email: recipientEmail,
+        resend_message_id: "pending",
+      });
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        skipped += 1;
+        continue;
+      }
+      console.error(`[cron/renewal] Dedup insert failed for ${c.id}:`, insertError);
+      errors.push({ subscription_id: c.id, error: `dedup insert: ${insertError.message}` });
       continue;
     }
 
@@ -133,35 +145,33 @@ export async function GET(request: Request) {
         stripeSubscriptionId: c.stripe_subscription_id,
       });
 
-      const { error: insertError } = await supabase
+      // Update the pending sentinel with the real Resend message ID.
+      await supabase
         .from("subscription_renewal_reminders")
-        .insert({
-          subscription_id: c.id,
-          reminder_period_end: c.current_period_end,
-          reminder_type: "annual_renewal",
-          recipient_email: recipientEmail,
-          resend_message_id: result.id,
-        });
+        .update({ resend_message_id: result.id })
+        .eq("subscription_id", c.id)
+        .eq("reminder_period_end", c.current_period_end)
+        .eq("reminder_type", "annual_renewal");
 
-      if (insertError) {
-        // Email sent but dedup row failed to write — log and continue.
-        // Next run will likely re-send (which violates dedup). Surface
-        // loudly so operator can fix.
-        console.error(
-          `[cron] Email sent for subscription ${c.id} but dedup insert failed:`,
-          insertError,
-        );
-        errors.push({
-          subscription_id: c.id,
-          error: `dedup insert failed: ${insertError.message}`,
-        });
-      }
       sent += 1;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[cron] Failed to send for subscription ${c.id}:`, message);
+      console.error(`[cron/renewal] Send failed for subscription ${c.id}:`, message);
+      // Remove the dedup row so the next cron run retries.
+      await supabase
+        .from("subscription_renewal_reminders")
+        .delete()
+        .eq("subscription_id", c.id)
+        .eq("reminder_period_end", c.current_period_end)
+        .eq("reminder_type", "annual_renewal");
       errors.push({ subscription_id: c.id, error: message });
     }
+  }
+
+  if (errors.length > 0 && errors.length === candidates.length) {
+    console.error(
+      `[cron/renewal] ALL ${candidates.length} candidates failed — check Resend and DB health`,
+    );
   }
 
   return NextResponse.json({
