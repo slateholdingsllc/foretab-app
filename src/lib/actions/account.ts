@@ -137,19 +137,28 @@ export async function updateCustomerStates(
   const existingSubStateIds = new Set(
     existing.filter((r) => r.granted_via === "subscription").map((r) => r.state_id),
   );
+  // C5: track trial rows separately so we can upgrade them on subscription rather
+  // than silently skipping with ignoreDuplicates (which left trial-granted rows
+  // intact, causing access to die when the trial expires even if they paid).
+  const existingTrialRows = existing.filter((r) => r.granted_via === "trial");
+  const existingTrialStateIds = new Set(existingTrialRows.map((r) => r.state_id));
+
   const desiredStateIds = new Set(selected);
 
   const toDelete = existing.filter(
     (r) => r.granted_via === "subscription" && !desiredStateIds.has(r.state_id),
   );
+  // Only INSERT states that have no existing row at all.
   const toInsert = selected
-    .filter((id) => !existingSubStateIds.has(id))
+    .filter((id) => !existingSubStateIds.has(id) && !existingTrialStateIds.has(id))
     .map((id) => ({
       customer_id: customer.id,
       state_id: id,
       granted_via: "subscription" as const,
       subscription_id: activeSub.id,
     }));
+  // States that already have a trial row get upgraded to subscription (not a new INSERT).
+  const trialRowsToUpgrade = existingTrialRows.filter((r) => desiredStateIds.has(r.state_id));
 
   if (toDelete.length > 0) {
     const { error: deleteErr } = await adminClient
@@ -164,16 +173,23 @@ export async function updateCustomerStates(
     }
   }
 
+  if (trialRowsToUpgrade.length > 0) {
+    const { error: upgradeErr } = await adminClient
+      .from("customer_states")
+      .update({ granted_via: "subscription", subscription_id: activeSub.id })
+      .in(
+        "id",
+        trialRowsToUpgrade.map((r) => r.id),
+      );
+    if (upgradeErr) {
+      return { ok: false, error: `Failed to upgrade trial states: ${upgradeErr.message}` };
+    }
+  }
+
   if (toInsert.length > 0) {
-    // upsert with ignoreDuplicates so a trial-granted row for the same
-    // state doesn't cause an INSERT conflict. The trial row stays as-is;
-    // we just don't add a duplicate subscription row.
     const { error: insertErr } = await adminClient
       .from("customer_states")
-      .upsert(toInsert, {
-        onConflict: "customer_id,state_id",
-        ignoreDuplicates: true,
-      });
+      .insert(toInsert);
     if (insertErr) {
       return { ok: false, error: `Failed to add states: ${insertErr.message}` };
     }
