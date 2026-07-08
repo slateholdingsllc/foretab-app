@@ -321,9 +321,9 @@ export async function rpcFetchUncontactedCount(
 
 export async function rpcFetchAllRecordsForExport(args: {
   filters: FilterState;
-  limit: number;
+  limit?: number;
 }): Promise<DashboardRecord[]> {
-  if (args.limit <= 0) return [];
+  if (args.limit !== undefined && args.limit <= 0) return [];
 
   const { filters, limit } = args;
 

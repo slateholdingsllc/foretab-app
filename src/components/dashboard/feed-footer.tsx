@@ -90,7 +90,7 @@ function ExportLink({
   href: string;
   canExport: boolean;
   isTrial: boolean;
-  cap: number;
+  cap: number | null;
   alreadyExported: number | undefined;
 }) {
   const baseClass =
@@ -112,8 +112,8 @@ function ExportLink({
   }
 
   const title = isTrial
-    ? `Trial: up to ${cap - (alreadyExported ?? 0)} more rows in this export.`
-    : `Up to ${cap.toLocaleString()} rows per export.`;
+    ? `Trial: up to ${(cap ?? 0) - (alreadyExported ?? 0)} more rows in this export.`
+    : "Export CSV (unlimited for paid accounts).";
 
   return (
     <a

@@ -10,11 +10,6 @@ import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
 import type { DashboardRecord, FilterState, PageResult } from "./types";
 import { PAGE_SIZE } from "./types";
 
-/**
- * Hard upper bound on a single CSV export. Per dispatch §14.3. Enforced
- * in app layer (the DB doesn't know about export semantics).
- */
-export const PAID_EXPORT_MAX_ROWS = 10_000;
 /** Trial customers can export this many records CUMULATIVELY over their trial. */
 export const TRIAL_EXPORT_CUMULATIVE_CAP = 25;
 
@@ -681,11 +676,11 @@ export async function fetchDataSourceHealthMap(): Promise<StateHealthMap> {
  */
 export async function fetchAllRecordsForExport(args: {
   filters: FilterState;
-  limit: number;
+  limit?: number;
 }): Promise<DashboardRecord[]> {
   if (rpcEnforced()) return rpcFetchAllRecordsForExport(args);
 
-  if (args.limit <= 0) return [];
+  if (args.limit !== undefined && args.limit <= 0) return [];
 
   const supabase = await createClient();
   const { filters } = args;
@@ -838,7 +833,9 @@ export async function fetchAllRecordsForExport(args: {
       query = query.order("location_zip", { ascending: true, nullsFirst: false }).order("id", { ascending: true });
       break;
   }
-  query = query.limit(args.limit);
+  if (args.limit !== undefined) {
+    query = query.limit(args.limit);
+  }
 
   const { data, error } = await query;
   if (error) {
@@ -936,22 +933,20 @@ export async function fetchCumulativeExportRowCount(
 /**
  * Computes the customer's export quota state for the FeedFooter. Returns
  * tier (or null for trial), and for trial customers, the cumulative
- * counter + cap. Single query for the trial path; no extra fetch for
- * paid customers (cap is constant).
+ * counter + cap.
  */
 export type ExportStatus = {
   /** True if the customer is on the free trial (no current_tier). */
   isTrial: boolean;
   /**
    * For trial customers: cumulative rows exported so far. Undefined for
-   * paid customers (no cumulative limit).
+   * paid customers (unlimited).
    */
   alreadyExported?: number;
   /**
-   * Trial: TRIAL_EXPORT_CUMULATIVE_CAP. Paid: PAID_EXPORT_MAX_ROWS.
-   * Same constants the route handler uses.
+   * Trial: TRIAL_EXPORT_CUMULATIVE_CAP. Paid: null (unlimited per Terms §7).
    */
-  cap: number;
+  cap: number | null;
   /** True if customer has any quota left. */
   canExport: boolean;
 };
@@ -962,7 +957,7 @@ export async function fetchExportStatus(): Promise<ExportStatus> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: false };
+    return { isTrial: false, cap: null, canExport: false };
   }
 
   const { data: customer } = await supabase
@@ -971,16 +966,16 @@ export async function fetchExportStatus(): Promise<ExportStatus> {
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (!customer) {
-    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: false };
+    return { isTrial: false, cap: null, canExport: false };
   }
 
   // Internal accounts: no trial cap, full export access (matches paid UX).
   if (customer.account_type === "internal") {
-    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: true };
+    return { isTrial: false, cap: null, canExport: true };
   }
 
   if (customer.current_tier) {
-    return { isTrial: false, cap: PAID_EXPORT_MAX_ROWS, canExport: true };
+    return { isTrial: false, cap: null, canExport: true };
   }
 
   const alreadyExported = await fetchCumulativeExportRowCount(customer.id);

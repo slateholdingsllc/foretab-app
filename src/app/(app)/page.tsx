@@ -26,7 +26,6 @@ import {
   fetchExportStatus,
   fetchSavedFilters,
   type ExportStatus,
-  PAID_EXPORT_MAX_ROWS,
 } from "@/lib/dashboard/queries";
 import { ActiveFilterChips } from "@/components/dashboard/active-filter-chips";
 import { GuidedTour } from "@/components/dashboard/guided-tour";
@@ -161,7 +160,7 @@ export default async function DashboardPage({
 
   const DEFAULT_EXPORT_STATUS: ExportStatus = {
     isTrial: false,
-    cap: PAID_EXPORT_MAX_ROWS,
+    cap: null,
     canExport: false,
   };
 
@@ -247,7 +246,7 @@ export default async function DashboardPage({
                     {exportStatus.canExport ? (
                       <a
                         href={exportHref}
-                        title={exportStatus.isTrial ? `Trial: up to ${exportStatus.cap - (exportStatus.alreadyExported ?? 0)} more rows` : `Up to ${exportStatus.cap.toLocaleString()} rows per export`}
+                        title={exportStatus.isTrial ? `Trial: up to ${(exportStatus.cap ?? 0) - (exportStatus.alreadyExported ?? 0)} more rows` : "Export CSV (unlimited for paid)"}
                         className="inline-flex h-12 shrink-0 items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 transition-colors hover:border-foreground-subtle hover:text-foreground"
                       >
                         Export CSV
@@ -255,7 +254,7 @@ export default async function DashboardPage({
                     ) : (
                       <span
                         aria-disabled="true"
-                        title={exportStatus.isTrial ? `Trial export limit reached (${exportStatus.cap} records). Upgrade for higher limits.` : "Export unavailable for your account."}
+                        title={exportStatus.isTrial ? `Trial export limit reached (${exportStatus.cap ?? 0} records). Upgrade for higher limits.` : "Export unavailable for your account."}
                         className="inline-flex h-12 shrink-0 cursor-not-allowed items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 opacity-40"
                       >
                         Export CSV
