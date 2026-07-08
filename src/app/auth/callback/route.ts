@@ -62,14 +62,14 @@ export async function GET(request: Request) {
   const acknowledgedAtParam = searchParams.get("acknowledged_at");
   const termsAcceptedAtParam = searchParams.get("terms_accepted_at");
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (acknowledgedAtParam || termsAcceptedAtParam) {
     // At least one consent timestamp is present → this is a new Google
     // OAuth signup (login flow never adds these params). Write the
     // timestamps to the customers row the trigger just created.
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     if (user) {
       const updates: Record<string, string> = {};
 
@@ -106,6 +106,23 @@ export async function GET(request: Request) {
           );
         }
       }
+    }
+  } else if (user) {
+    // No consent params in URL → Google OAuth user who skipped /signup
+    // (e.g. clicked "Sign in with Google" from /login). Check if their
+    // customer row is incomplete and route to the finish-signup interstitial.
+    // Returning users with complete rows pass through without an extra hop.
+    const admin = createAdminClient();
+    const { data: customer } = await admin
+      .from("customers")
+      .select("trial_cap_disclosure_at, business_state")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (customer && (!customer.trial_cap_disclosure_at || !customer.business_state)) {
+      return NextResponse.redirect(
+        `${origin}/auth/finish-signup?next=${encodeURIComponent(next)}`,
+      );
     }
   }
 
