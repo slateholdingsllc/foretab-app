@@ -457,6 +457,21 @@ export async function resendVerification(formData: FormData): Promise<AuthAction
     .toLowerCase();
   if (!email) return { ok: false, error: "Email is required." };
 
+  // C11: confirmed accounts must not receive a magic-login link via the
+  // resend-verification flow. A customers row exists iff the
+  // handle_email_confirmed trigger has fired (email_confirmed_at was set).
+  // Unverified users have no customers row yet.
+  const adminCheck = createAdminClient();
+  const { data: existingCustomer } = await adminCheck
+    .from("customers")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (existingCustomer) {
+    // Already confirmed — return generic success with no email sent.
+    return { ok: true };
+  }
+
   const origin = await getRequestOrigin();
   const emailRedirectTo = `${origin}/auth/callback?next=/state-selection`;
   const flow = signupFlowVersion();
