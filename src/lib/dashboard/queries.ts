@@ -1,12 +1,14 @@
-import type {
-  BusinessDisposition,
-  DispositionStatus,
-} from "@/lib/disposition/types";
-import { createClient } from "@/lib/supabase/server";
-import { rpcFetchAllRecordsForExport, rpcFetchDashboardPage, rpcFetchDashboardPageByBusiness, rpcFetchUncontactedCount } from "@/lib/rpc/feed";
+import type { BusinessDisposition, DispositionStatus } from "@/lib/disposition/types";
+import {
+  rpcFetchAllRecordsForExport,
+  rpcFetchDashboardPage,
+  rpcFetchDashboardPageByBusiness,
+  rpcFetchUncontactedCount,
+} from "@/lib/rpc/feed";
 import { rpcEnforced } from "@/lib/rpc/flag";
+import { createClient } from "@/lib/supabase/server";
 import { decodeCursor, encodeCursor } from "./cursor";
-import { normalizeFilterConfig, type SavedFilter } from "./saved-filters";
+import { type SavedFilter, normalizeFilterConfig } from "./saved-filters";
 import type { DashboardRecord, FilterState, PageResult } from "./types";
 import { PAGE_SIZE } from "./types";
 
@@ -35,9 +37,7 @@ async function fetchBusinessIdsByDispositionStatus(
     console.error("[fetchBusinessIdsByDispositionStatus] query failed:", error);
     return [];
   }
-  return ((data ?? []) as Array<{ business_id: string }>).map(
-    (r) => r.business_id,
-  );
+  return ((data ?? []) as Array<{ business_id: string }>).map((r) => r.business_id);
 }
 
 /**
@@ -220,19 +220,12 @@ export async function fetchDashboardPage(args: {
   // results.
   if (filters.dispositionTab !== "all") {
     if (filters.dispositionTab === "uncontacted") {
-      const dispositionedIds =
-        await fetchBusinessIdsByDispositionStatus("any");
+      const dispositionedIds = await fetchBusinessIdsByDispositionStatus("any");
       if (dispositionedIds.length > 0) {
-        query = query.not(
-          "business_id",
-          "in",
-          `(${dispositionedIds.join(",")})`,
-        );
+        query = query.not("business_id", "in", `(${dispositionedIds.join(",")})`);
       }
     } else {
-      const tabIds = await fetchBusinessIdsByDispositionStatus(
-        filters.dispositionTab,
-      );
+      const tabIds = await fetchBusinessIdsByDispositionStatus(filters.dispositionTab);
       if (tabIds.length === 0) {
         return { records: [], nextCursor: null, totalCount: 0 };
       }
@@ -268,9 +261,13 @@ export async function fetchDashboardPage(args: {
         if (cursor.n) {
           query = query.or(`and(issued_date.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
         } else if (asc) {
-          query = query.or(`issued_date.gt.${cursor.s},and(issued_date.eq.${cursor.s},id.gt.${cursor.i}),issued_date.is.null`);
+          query = query.or(
+            `issued_date.gt.${cursor.s},and(issued_date.eq.${cursor.s},id.gt.${cursor.i}),issued_date.is.null`,
+          );
         } else {
-          query = query.or(`issued_date.lt.${cursor.s},and(issued_date.eq.${cursor.s},id.lt.${cursor.i}),issued_date.is.null`);
+          query = query.or(
+            `issued_date.lt.${cursor.s},and(issued_date.eq.${cursor.s},id.lt.${cursor.i}),issued_date.is.null`,
+          );
         }
       }
       break;
@@ -283,7 +280,9 @@ export async function fetchDashboardPage(args: {
         if (cursor.n) {
           query = query.or(`and(expiration_date.is.null,id.gt.${cursor.i})`);
         } else {
-          query = query.or(`expiration_date.gt.${cursor.s},and(expiration_date.eq.${cursor.s},id.gt.${cursor.i}),expiration_date.is.null`);
+          query = query.or(
+            `expiration_date.gt.${cursor.s},and(expiration_date.eq.${cursor.s},id.gt.${cursor.i}),expiration_date.is.null`,
+          );
         }
       }
       break;
@@ -299,9 +298,13 @@ export async function fetchDashboardPage(args: {
         if (cursor.n) {
           query = query.or(`and(business_name.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
         } else if (asc) {
-          query = query.or(`business_name.gt.${v},and(business_name.eq.${v},id.gt.${cursor.i}),business_name.is.null`);
+          query = query.or(
+            `business_name.gt.${v},and(business_name.eq.${v},id.gt.${cursor.i}),business_name.is.null`,
+          );
         } else {
-          query = query.or(`business_name.lt.${v},and(business_name.eq.${v},id.lt.${cursor.i}),business_name.is.null`);
+          query = query.or(
+            `business_name.lt.${v},and(business_name.eq.${v},id.lt.${cursor.i}),business_name.is.null`,
+          );
         }
       }
       break;
@@ -317,9 +320,13 @@ export async function fetchDashboardPage(args: {
         if (cursor.n) {
           query = query.or(`and(license_type_raw.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
         } else if (asc) {
-          query = query.or(`license_type_raw.gt.${v},and(license_type_raw.eq.${v},id.gt.${cursor.i}),license_type_raw.is.null`);
+          query = query.or(
+            `license_type_raw.gt.${v},and(license_type_raw.eq.${v},id.gt.${cursor.i}),license_type_raw.is.null`,
+          );
         } else {
-          query = query.or(`license_type_raw.lt.${v},and(license_type_raw.eq.${v},id.lt.${cursor.i}),license_type_raw.is.null`);
+          query = query.or(
+            `license_type_raw.lt.${v},and(license_type_raw.eq.${v},id.lt.${cursor.i}),license_type_raw.is.null`,
+          );
         }
       }
       break;
@@ -335,9 +342,13 @@ export async function fetchDashboardPage(args: {
         if (cursor.n) {
           query = query.or(`and(location_city.is.null,id.${asc ? "gt" : "lt"}.${cursor.i})`);
         } else if (asc) {
-          query = query.or(`location_city.gt.${v},and(location_city.eq.${v},id.gt.${cursor.i}),location_city.is.null`);
+          query = query.or(
+            `location_city.gt.${v},and(location_city.eq.${v},id.gt.${cursor.i}),location_city.is.null`,
+          );
         } else {
-          query = query.or(`location_city.lt.${v},and(location_city.eq.${v},id.lt.${cursor.i}),location_city.is.null`);
+          query = query.or(
+            `location_city.lt.${v},and(location_city.eq.${v},id.lt.${cursor.i}),location_city.is.null`,
+          );
         }
       }
       break;
@@ -351,7 +362,9 @@ export async function fetchDashboardPage(args: {
         if (cursor.n) {
           query = query.or(`and(location_zip.is.null,id.gt.${cursor.i})`);
         } else {
-          query = query.or(`location_zip.gt.${v},and(location_zip.eq.${v},id.gt.${cursor.i}),location_zip.is.null`);
+          query = query.or(
+            `location_zip.gt.${v},and(location_zip.eq.${v},id.gt.${cursor.i}),location_zip.is.null`,
+          );
         }
       }
       break;
@@ -372,7 +385,10 @@ export async function fetchDashboardPage(args: {
   // joins (each classified_record has at most one business, one location,
   // one state), they come back as single objects or null.
   const rows = (data ?? []) as unknown as Array<
-    Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel" | "dba_name"> & {
+    Omit<
+      DashboardRecord,
+      "business" | "location" | "state_code" | "data_source_channel" | "dba_name"
+    > & {
       business_id: string | null;
       dba: string | null;
       locations: DashboardRecord["location"];
@@ -411,7 +427,12 @@ export async function fetchDashboardPage(args: {
     // business.id is preserved from classified_records.business_id for
     // disposition enrichment; display names fall back to business_name/dba_name.
     business: r.business_id
-      ? { id: r.business_id, primary_legal_name: null, primary_dba_name: null, primary_state_code: null }
+      ? {
+          id: r.business_id,
+          primary_legal_name: null,
+          primary_dba_name: null,
+          primary_state_code: null,
+        }
       : null,
     location: r.locations,
     lead_type: r.lead_type ?? null,
@@ -425,8 +446,7 @@ export async function fetchDashboardPage(args: {
   const pageBusinessIds = Array.from(
     new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
   );
-  const dispositionByBusinessId =
-    await fetchDispositionsByBusinessId(pageBusinessIds);
+  const dispositionByBusinessId = await fetchDispositionsByBusinessId(pageBusinessIds);
   for (const record of records) {
     const bid = record.business?.id;
     if (bid) {
@@ -466,11 +486,7 @@ export async function fetchDashboardPage(args: {
   const sortVal = last ? getSortFieldValue(last) : null;
   const nextCursor =
     hasMore && last
-      ? encodeCursor(
-          sortVal !== null
-            ? { s: sortVal, i: last.id }
-            : { s: "", i: last.id, n: true },
-        )
+      ? encodeCursor(sortVal !== null ? { s: sortVal, i: last.id } : { s: "", i: last.id, n: true })
       : null;
 
   // Fire-and-forget access log — POST transaction, so INSERT works.
@@ -625,17 +641,15 @@ import type { StateHealthEntry, StateHealthMap } from "./types";
 
 export async function fetchDataSourceHealthMap(): Promise<StateHealthMap> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("data_source_health")
-    .select(
-      `
+  const { data, error } = await supabase.from("data_source_health").select(
+    `
       state_id,
       last_refresh_at,
       status,
       error_count_24h,
       states ( state_code, refresh_frequency )
     `,
-    );
+  );
 
   if (error) {
     console.error("[fetchDataSourceHealthMap] query failed:", error);
@@ -667,9 +681,9 @@ export async function fetchDataSourceHealthMap(): Promise<StateHealthMap> {
 
 /**
  * Fetch up to `limit` records matching the given filters for CSV export.
- * Same join + filter + sort as fetchDashboardPage, but no cursor — exports
- * pull a single bounded batch. RLS scopes to the customer's accessible
- * states.
+ * Routes exclusively through the SECURITY DEFINER export_feed RPC — direct
+ * PostgREST reads on classified_records are blocked by the authenticated role's
+ * SELECT revoke (see lib/rpc/flag.ts for migration history).
  *
  * Returns up to `limit` rows; caller is responsible for enforcing the
  * trial-vs-paid cap before calling.
@@ -678,232 +692,7 @@ export async function fetchAllRecordsForExport(args: {
   filters: FilterState;
   limit?: number;
 }): Promise<DashboardRecord[]> {
-  if (rpcEnforced()) return rpcFetchAllRecordsForExport(args);
-
-  if (args.limit !== undefined && args.limit <= 0) return [];
-
-  const supabase = await createClient();
-  const { filters } = args;
-
-  let query = supabase
-    .from("classified_records")
-    .select(
-      `
-      id,
-      classification_version,
-      license_record_type,
-      icp_relevance,
-      business_archetype,
-      on_premises,
-      off_premises,
-      beverage_scope,
-      signal_strength,
-      signal_strength_reason,
-      customer_status,
-      notes,
-      classified_at,
-      issued_date,
-      first_observed_at,
-      sort_date,
-      state_id,
-      business_id,
-      business_name,
-      dba,
-      expiration_date,
-      license_type_raw,
-      lead_type,
-      locations ( id, normalized_address, street, city, state_code, zip ),
-      states ( state_code )
-    `,
-    )
-    .eq("published_to_customers", true);
-
-  if (filters.states.length > 0) {
-    const { data: stateRows } = await supabase
-      .from("states")
-      .select("id, state_code")
-      .in("state_code", filters.states);
-    const stateIds = (stateRows ?? []).map((r) => r.id);
-    if (stateIds.length === 0) return [];
-    query = query.in("state_id", stateIds);
-  }
-
-  if (filters.licenseTypes.length > 0) {
-    query = query.in("license_record_type", filters.licenseTypes);
-  }
-  if (filters.signalStrengths.length > 0) {
-    query = query.in("signal_strength", filters.signalStrengths);
-  }
-  if (filters.businessArchetypes.length > 0) {
-    query = query.in("business_archetype", filters.businessArchetypes);
-  }
-  {
-    // Always apply a date window — never let null (All time) hit the DB
-    // unguarded. Default to 180 days when the user hasn't chosen a window;
-    // the DB function also defaults to 180 but receives an explicit null
-    // from this PostgREST path which bypasses that default.
-    const effectiveDaysWindow = filters.daysWindow ?? 180;
-    const threshold = new Date(
-      Date.now() - effectiveDaysWindow * 24 * 60 * 60 * 1000,
-    ).toISOString();
-    query = query.gte("classified_at", threshold);
-  }
-
-  if (filters.newThisWeek) {
-    const threshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const dateStr = threshold.toISOString().slice(0, 10);
-    const tsStr = threshold.toISOString();
-    query = query.or(
-      `issued_date.gte.${dateStr},and(issued_date.is.null,first_observed_at.gte.${tsStr})`,
-    );
-  }
-
-  if (filters.search.trim().length > 0) {
-    const esc = filters.search.trim().replace(/"/g, '""');
-    query = query.or(`business_name.ilike."%${esc}%",dba.ilike."%${esc}%"`);
-  }
-
-  if (filters.city.trim().length > 0) {
-    query = query.eq("location_city", filters.city.trim());
-  }
-  if (filters.zip.trim().length > 0) {
-    query = query.ilike("location_zip", `${filters.zip.trim()}%`);
-  }
-  if (filters.leadTypes.length > 0) {
-    query = query.in("lead_type", filters.leadTypes);
-  }
-
-  // Same StatusTabs filter as the page query — exports match what the
-  // rep sees on screen for the currently selected tab.
-  if (filters.dispositionTab !== "all") {
-    if (filters.dispositionTab === "uncontacted") {
-      const dispositionedIds =
-        await fetchBusinessIdsByDispositionStatus("any");
-      if (dispositionedIds.length > 0) {
-        query = query.not(
-          "business_id",
-          "in",
-          `(${dispositionedIds.join(",")})`,
-        );
-      }
-    } else {
-      const tabIds = await fetchBusinessIdsByDispositionStatus(
-        filters.dispositionTab,
-      );
-      if (tabIds.length === 0) return [];
-      query = query.in("business_id", tabIds);
-    }
-  }
-
-  switch (filters.sort) {
-    case "oldest_first":
-    case "newest_first": {
-      const asc = filters.sort === "oldest_first";
-      query = query.order("sort_date", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
-      break;
-    }
-    case "issued_asc":
-    case "issued_desc": {
-      const asc = filters.sort === "issued_asc";
-      query = query.order("issued_date", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
-      break;
-    }
-    case "expiring_soonest":
-      query = query.order("expiration_date", { ascending: true, nullsFirst: false }).order("id", { ascending: true });
-      break;
-    case "name_asc":
-    case "name_desc": {
-      const asc = filters.sort === "name_asc";
-      query = query.order("business_name", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
-      break;
-    }
-    case "license_type_asc":
-    case "license_type_desc": {
-      const asc = filters.sort === "license_type_asc";
-      query = query.order("license_type_raw", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
-      break;
-    }
-    case "city_asc":
-    case "city_desc": {
-      const asc = filters.sort === "city_asc";
-      query = query.order("location_city", { ascending: asc, nullsFirst: false }).order("id", { ascending: asc });
-      break;
-    }
-    case "zip_asc":
-      query = query.order("location_zip", { ascending: true, nullsFirst: false }).order("id", { ascending: true });
-      break;
-  }
-  if (args.limit !== undefined) {
-    query = query.limit(args.limit);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(`fetchAllRecordsForExport failed: ${error.message}`);
-  }
-
-  const rows = (data ?? []) as unknown as Array<
-    Omit<DashboardRecord, "business" | "location" | "state_code" | "data_source_channel" | "dba_name"> & {
-      business_id: string | null;
-      dba: string | null;
-      locations: DashboardRecord["location"];
-      states: { state_code: string | null } | null;
-    }
-  >;
-
-  const records: DashboardRecord[] = rows.map((r) => ({
-    id: r.id,
-    classification_version: r.classification_version,
-    license_record_type: r.license_record_type,
-    icp_relevance: r.icp_relevance ?? [],
-    business_archetype: r.business_archetype,
-    on_premises: r.on_premises,
-    off_premises: r.off_premises,
-    beverage_scope: r.beverage_scope,
-    signal_strength: r.signal_strength,
-    signal_strength_reason: r.signal_strength_reason,
-    customer_status: r.customer_status,
-    disposition: null,
-    notes: r.notes,
-    classified_at: r.classified_at,
-    issued_date: r.issued_date ?? null,
-    first_observed_at: r.first_observed_at ?? null,
-    sort_date: r.sort_date ?? null,
-    state_id: r.state_id,
-    state_code: r.states?.state_code ?? null,
-    data_source_channel: null,
-    expiration_date: r.expiration_date ?? null,
-    license_type_raw: r.license_type_raw ?? null,
-    business_name: r.business_name ?? null,
-    dba_name: r.dba ?? null,
-    business: r.business_id
-      ? { id: r.business_id, primary_legal_name: null, primary_dba_name: null, primary_state_code: null }
-      : null,
-    location: r.locations,
-    lead_type: r.lead_type ?? null,
-    premises_state_code: null,
-    in_state: null,
-  }));
-
-  // Enrich with the full disposition row — same pattern as fetchDashboardPage.
-  // Even on a 10K export this is one cheap query against the customer's own
-  // dispositions table (typically small).
-  const exportBusinessIds = Array.from(
-    new Set(records.map((r) => r.business?.id).filter((id): id is string => Boolean(id))),
-  );
-  const dispositionByBusinessId =
-    await fetchDispositionsByBusinessId(exportBusinessIds);
-  for (const record of records) {
-    const bid = record.business?.id;
-    if (bid) {
-      record.disposition = dispositionByBusinessId.get(bid) ?? null;
-    }
-  }
-
-  // Fire-and-forget access log.
-  void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "export_feed" })).catch(() => {});
-
-  return records;
+  return rpcFetchAllRecordsForExport(args);
 }
 
 /**
@@ -914,9 +703,7 @@ export async function fetchAllRecordsForExport(args: {
  * RLS limits SELECT to the customer's own rows (migration 007), so the
  * SUM is automatically scoped. Returns 0 if no prior exports.
  */
-export async function fetchCumulativeExportRowCount(
-  customerId: string,
-): Promise<number> {
+export async function fetchCumulativeExportRowCount(customerId: string): Promise<number> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("csv_export_log")
