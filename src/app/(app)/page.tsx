@@ -1,37 +1,37 @@
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
+import { ActiveFilterChips } from "@/components/dashboard/active-filter-chips";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { DispositionTabsBar } from "@/components/dashboard/disposition-tabs-bar";
-import { MobileWorklistControls } from "@/components/dashboard/mobile-worklist-controls";
-import { SectionDegraded } from "@/components/dashboard/section-degraded";
-import { WorklistSearchBar } from "@/components/dashboard/worklist-search-bar";
 import { DensityProvider } from "@/components/dashboard/disposition/density-provider";
+import { StatusCountsProvider } from "@/components/dashboard/disposition/status-counts-context";
 import type { StatusTabValue } from "@/components/dashboard/disposition/status-tabs";
 import { TodayPanel } from "@/components/dashboard/disposition/today-panel";
 import { Feed } from "@/components/dashboard/feed";
+import { GuidedTour } from "@/components/dashboard/guided-tour";
+import { MobileWorklistControls } from "@/components/dashboard/mobile-worklist-controls";
+import { SectionDegraded } from "@/components/dashboard/section-degraded";
 import { WorklistLayout, WorklistRail } from "@/components/dashboard/worklist-layout";
-import { getStatusCounts } from "@/lib/disposition/actions";
+import { WorklistSearchBar } from "@/components/dashboard/worklist-search-bar";
 import {
-  getDueFollowUpsForToday,
-  getNewHighPriority,
-} from "@/lib/disposition/today.queries";
-import { hasActiveFilters, parseFiltersFromSearchParams, serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
+  hasActiveFilters,
+  parseFiltersFromSearchParams,
+  serializeFiltersToSearchParams,
+} from "@/lib/dashboard/filters";
 import {
+  type ExportStatus,
   fetchAccessibleStateCodes,
   fetchCustomerContext,
-  fetchDashboardPage,
   fetchDashboardPageByBusiness,
-  fetchUncontactedCount,
   fetchDataSourceHealthMap,
   fetchExportStatus,
   fetchSavedFilters,
-  type ExportStatus,
+  fetchUncontactedCount,
 } from "@/lib/dashboard/queries";
-import { ActiveFilterChips } from "@/components/dashboard/active-filter-chips";
-import { GuidedTour } from "@/components/dashboard/guided-tour";
+import { getStatusCounts } from "@/lib/disposition/actions";
+import { getDueFollowUpsForToday, getNewHighPriority } from "@/lib/disposition/today.queries";
 import { QuotaExceededError } from "@/lib/rpc/errors";
 import { createClient } from "@/lib/supabase/server";
-import { StatusCountsProvider } from "@/components/dashboard/disposition/status-counts-context";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 /**
  * Dashboard root. The post-auth landing surface — what customers see
@@ -112,29 +112,29 @@ export default async function DashboardPage({
   // Past the guards — fetch data in parallel. allSettled so one slow query
   // can't crash the whole page — sections render degraded states independently.
   const resolvedSearchParams = await searchParams;
-  const rawFilters = parseFiltersFromSearchParams(resolvedSearchParams);
-  // Opening Now is the default view. Active when there is no explicit ?types=
-  // in the URL and the user hasn't opted into ?all=1 (all-records override).
-  // Applies p_license_record_type=['new_issuance','application'] and a 180d
-  // window as server-side defaults — the URL stays clean (just "/") and the
-  // filter form's Apply rebuilds from URL, so the preset is transparent.
-  const hasExplicitTypes = typeof resolvedSearchParams.types === "string";
-  const isOpeningNow = !hasExplicitTypes && resolvedSearchParams.all !== "1";
-  const filters = isOpeningNow
-    ? {
-        ...rawFilters,
-        licenseTypes: ["new_issuance", "application"] as typeof rawFilters.licenseTypes,
-        daysWindow: rawFilters.daysWindow ?? 180,
-      }
-    : rawFilters;
+
+  // Canonicalize bare landing to the Opening Now default view so the URL
+  // always carries the active filters. Chips, presets, and export links all
+  // read from the URL as single truth — this redirect ensures they're correct
+  // on first load without invisible server-side injection.
+  if (Object.keys(resolvedSearchParams).length === 0) {
+    redirect("/?types=new_issuance,application&days=180");
+  }
+
+  const filters = parseFiltersFromSearchParams(resolvedSearchParams);
+  // Opening Now is active when both new-issuance + application types are in
+  // the URL and a time window is set — matches the preset canonical URL.
+  const isOpeningNow =
+    filters.licenseTypes.includes("new_issuance") &&
+    filters.licenseTypes.includes("application") &&
+    filters.daysWindow !== null;
   const cursor =
     typeof resolvedSearchParams.cursor === "string" ? resolvedSearchParams.cursor : null;
 
   // Feed query runs in parallel but is NOT awaited here — Suspense streams
   // it to the client once resolved, so the page shell renders immediately.
-  const feedPromise = isOpeningNow
-    ? fetchDashboardPageByBusiness({ filters, cursor })
-    : fetchDashboardPage({ filters, cursor });
+  // Worklist is always business-grain (one row per business) per dispatch.
+  const feedPromise = fetchDashboardPageByBusiness({ filters, cursor });
 
   const [
     contextResult,
@@ -169,29 +169,17 @@ export default async function DashboardPage({
       ? contextResult.value
       : { customerId: null, email: null, status: null, currentTier: null, trialExpiresAt: null };
   const accessibleStateCodes =
-    accessibleStateCodesResult.status === "fulfilled"
-      ? accessibleStateCodesResult.value
-      : [];
-  const healthMap =
-    healthMapResult.status === "fulfilled" ? healthMapResult.value : new Map();
+    accessibleStateCodesResult.status === "fulfilled" ? accessibleStateCodesResult.value : [];
+  const healthMap = healthMapResult.status === "fulfilled" ? healthMapResult.value : new Map();
   const exportStatus =
-    exportStatusResult.status === "fulfilled"
-      ? exportStatusResult.value
-      : DEFAULT_EXPORT_STATUS;
-  const savedFilters =
-    savedFiltersResult.status === "fulfilled" ? savedFiltersResult.value : [];
-  const dueFollowUps =
-    dueFollowUpsResult.status === "fulfilled" ? dueFollowUpsResult.value : null;
+    exportStatusResult.status === "fulfilled" ? exportStatusResult.value : DEFAULT_EXPORT_STATUS;
+  const savedFilters = savedFiltersResult.status === "fulfilled" ? savedFiltersResult.value : [];
+  const dueFollowUps = dueFollowUpsResult.status === "fulfilled" ? dueFollowUpsResult.value : null;
   const newHighPriority =
-    newHighPriorityResult.status === "fulfilled"
-      ? newHighPriorityResult.value
-      : null;
-  const statusCounts =
-    statusCountsResult.status === "fulfilled" ? statusCountsResult.value : null;
+    newHighPriorityResult.status === "fulfilled" ? newHighPriorityResult.value : null;
+  const statusCounts = statusCountsResult.status === "fulfilled" ? statusCountsResult.value : null;
   const uncontactedCount =
-    uncontactedCountResult.status === "fulfilled"
-      ? uncontactedCountResult.value
-      : null;
+    uncontactedCountResult.status === "fulfilled" ? uncontactedCountResult.value : null;
 
   // StatusTabs counts — degrade gracefully when statusCounts fails.
   const tabCounts: Partial<Record<StatusTabValue, number>> = {
@@ -210,101 +198,106 @@ export default async function DashboardPage({
 
   return (
     <StatusCountsProvider initialCounts={tabCounts}>
-    <AppShell
-      email={context.email}
-      currentTier={context.currentTier}
-      trialExpiresAt={context.trialExpiresAt}
-      accessibleStateCodes={accessibleStateCodes}
-      savedFilters={savedFilters}
-      currentFilters={rawFilters}
-      healthMap={healthMap}
-      viewport="full"
-    >
-      <GuidedTour />
-      {/* DensityProvider wraps the worklist so client components below can
+      <AppShell
+        email={context.email}
+        currentTier={context.currentTier}
+        trialExpiresAt={context.trialExpiresAt}
+        accessibleStateCodes={accessibleStateCodes}
+        savedFilters={savedFilters}
+        currentFilters={filters}
+        healthMap={healthMap}
+        viewport="full"
+      >
+        <GuidedTour />
+        {/* DensityProvider wraps the worklist so client components below can
           call useDensity() for the compact/comfortable toggle. */}
-      <DensityProvider>
-        <WorklistLayout
-          className="h-full"
-          tabs={
-            <>
-              <MobileWorklistControls
-                filters={rawFilters}
-                accessibleStateCodes={accessibleStateCodes}
-                savedFilters={savedFilters}
-                resultCount={undefined}
-              />
-              {/* Desktop search + Export CSV — hidden on mobile */}
-              {(() => {
-                const exportParams = serializeFiltersToSearchParams(filters);
-                const exportHref = `/api/export.csv${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
-                return (
-                  <div className="hidden lg:flex lg:items-center lg:gap-2">
-                    <div className="min-w-0 flex-1">
-                      <WorklistSearchBar filters={rawFilters} className="mb-0" />
-                    </div>
-                    {exportStatus.canExport ? (
-                      <a
-                        href={exportHref}
-                        title={exportStatus.isTrial ? `Trial: up to ${(exportStatus.cap ?? 0) - (exportStatus.alreadyExported ?? 0)} more rows` : "Export CSV (unlimited for paid)"}
-                        className="inline-flex h-12 shrink-0 items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 transition-colors hover:border-foreground-subtle hover:text-foreground"
-                      >
-                        Export CSV
-                      </a>
-                    ) : (
-                      <span
-                        aria-disabled="true"
-                        title={exportStatus.isTrial ? `Trial export limit reached (${exportStatus.cap ?? 0} records). Upgrade for higher limits.` : "Export unavailable for your account."}
-                        className="inline-flex h-12 shrink-0 cursor-not-allowed items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 opacity-40"
-                      >
-                        Export CSV
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
-              {/* Desktop active-filter scope — shows chips when filters are applied,
-                  fallback text when none so the rep always knows what scope is live. */}
-              <div className="hidden lg:flex lg:items-center">
-                <ActiveFilterChips filters={rawFilters} />
-                {!hasActiveFilters(rawFilters) && (
-                  <p className="text-[11px] leading-none text-foreground-subtle">
-                    Viewing all {accessibleStateCodes.length} accessible states
-                  </p>
-                )}
-              </div>
-              <Suspense fallback={null}>
-                <DispositionTabsBar
-                  active={filters.dispositionTab}
-                  serverCounts={tabCounts}
+        <DensityProvider>
+          <WorklistLayout
+            className="h-full"
+            tabs={
+              <>
+                <MobileWorklistControls
+                  filters={filters}
+                  accessibleStateCodes={accessibleStateCodes}
+                  savedFilters={savedFilters}
+                  resultCount={undefined}
                 />
-              </Suspense>
-            </>
-          }
-          rail={
-            <WorklistRail
-              today={
-                dueFollowUps !== null && newHighPriority !== null ? (
-                  <TodayPanel due={dueFollowUps} newLeads={newHighPriority} />
-                ) : (
-                  <SectionDegraded message="Today's panel is temporarily unavailable" />
-                )
-              }
-            />
-          }
-        >
-          <Suspense fallback={null}>
-            <StreamedFeed
-              feedPromise={feedPromise}
-              filters={filters}
-              healthMap={healthMap}
-              exportStatus={exportStatus}
-              isOpeningNow={isOpeningNow}
-            />
-          </Suspense>
-        </WorklistLayout>
-      </DensityProvider>
-    </AppShell>
+                {/* Desktop search + Export CSV — hidden on mobile */}
+                {(() => {
+                  const exportParams = serializeFiltersToSearchParams(filters);
+                  const exportHref = `/api/export.csv${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
+                  return (
+                    <div className="hidden lg:flex lg:items-center lg:gap-2">
+                      <div className="min-w-0 flex-1">
+                        <WorklistSearchBar filters={filters} className="mb-0" />
+                      </div>
+                      {exportStatus.canExport ? (
+                        <a
+                          href={exportHref}
+                          title={
+                            exportStatus.isTrial
+                              ? `Trial: up to ${(exportStatus.cap ?? 0) - (exportStatus.alreadyExported ?? 0)} more rows`
+                              : "Export CSV (unlimited for paid)"
+                          }
+                          className="inline-flex h-12 shrink-0 items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 transition-colors hover:border-foreground-subtle hover:text-foreground"
+                        >
+                          Export CSV
+                        </a>
+                      ) : (
+                        <span
+                          aria-disabled="true"
+                          title={
+                            exportStatus.isTrial
+                              ? `Trial export limit reached (${exportStatus.cap ?? 0} records). Upgrade for higher limits.`
+                              : "Export unavailable for your account."
+                          }
+                          className="inline-flex h-12 shrink-0 cursor-not-allowed items-center rounded-xl border border-border bg-card px-3.5 font-sans text-[13px] font-medium text-foreground-2 opacity-40"
+                        >
+                          Export CSV
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+                {/* Desktop active-filter scope — shows chips when filters are applied,
+                  fallback text when none so the rep always knows what scope is live. */}
+                <div className="hidden lg:flex lg:items-center">
+                  <ActiveFilterChips filters={filters} />
+                  {!hasActiveFilters(filters) && (
+                    <p className="text-[11px] leading-none text-foreground-subtle">
+                      Viewing all {accessibleStateCodes.length} accessible states
+                    </p>
+                  )}
+                </div>
+                <Suspense fallback={null}>
+                  <DispositionTabsBar active={filters.dispositionTab} serverCounts={tabCounts} />
+                </Suspense>
+              </>
+            }
+            rail={
+              <WorklistRail
+                today={
+                  dueFollowUps !== null && newHighPriority !== null ? (
+                    <TodayPanel due={dueFollowUps} newLeads={newHighPriority} />
+                  ) : (
+                    <SectionDegraded message="Today's panel is temporarily unavailable" />
+                  )
+                }
+              />
+            }
+          >
+            <Suspense fallback={null}>
+              <StreamedFeed
+                feedPromise={feedPromise}
+                filters={filters}
+                healthMap={healthMap}
+                exportStatus={exportStatus}
+                isOpeningNow={isOpeningNow}
+              />
+            </Suspense>
+          </WorklistLayout>
+        </DensityProvider>
+      </AppShell>
     </StatusCountsProvider>
   );
 }

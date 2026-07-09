@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
-import { cn } from "@/lib/utils";
 
 const CHIP_BASE =
   "inline-flex h-7 cursor-pointer select-none items-center rounded border px-2.5 font-mono text-[12px] uppercase tracking-[0.05em] transition-colors leading-none";
@@ -33,12 +32,20 @@ export function OpeningNowBar({ daysWindow }: { daysWindow: number }) {
 
   function setWindow(days: number) {
     const params = new URLSearchParams(searchParams.toString());
-    // Remove the ?all=1 override if present (shouldn't be since we're in ON mode, but defensive)
-    params.delete("all");
     params.set("days", String(days));
-    // Keep cursor off on window change
     params.delete("cursor");
     startTransition(() => router.push(`/?${params.toString()}`));
+  }
+
+  function viewAllRecords() {
+    const params = new URLSearchParams(searchParams.toString());
+    // Clear the Opening Now-specific params; preserve state/territory filters.
+    params.delete("types");
+    params.delete("days");
+    params.delete("ntw");
+    params.delete("cursor");
+    const qs = params.toString();
+    startTransition(() => router.push(qs ? `/?${qs}` : "/"));
   }
 
   return (
@@ -70,13 +77,13 @@ export function OpeningNowBar({ daysWindow }: { daysWindow: number }) {
         <span className="mx-1.5 text-border-soft" aria-hidden="true">
           |
         </span>
-        <Link
-          href="/?all=1"
+        <button
+          type="button"
+          onClick={viewAllRecords}
           className="font-mono text-[12px] uppercase tracking-[0.06em] text-foreground-muted transition-colors hover:text-foreground"
-          prefetch={false}
         >
           View all
-        </Link>
+        </button>
       </div>
     </div>
   );
