@@ -160,7 +160,7 @@ export async function fetchDashboardPage(args: {
     if (stateIds.length === 0) {
       // Filter referenced state codes the customer doesn't actually have
       // access to (or that don't exist). Return empty.
-      return { records: [], nextCursor: null, totalCount: 0 };
+      return { records: [], nextCursor: null, totalCount: 0, recordCount: null };
     }
     query = query.in("state_id", stateIds);
   }
@@ -227,7 +227,7 @@ export async function fetchDashboardPage(args: {
     } else {
       const tabIds = await fetchBusinessIdsByDispositionStatus(filters.dispositionTab);
       if (tabIds.length === 0) {
-        return { records: [], nextCursor: null, totalCount: 0 };
+        return { records: [], nextCursor: null, totalCount: 0, recordCount: null };
       }
       query = query.in("business_id", tabIds);
     }
@@ -496,6 +496,7 @@ export async function fetchDashboardPage(args: {
     records,
     nextCursor,
     totalCount: count ?? null,
+    recordCount: null,
   };
 }
 

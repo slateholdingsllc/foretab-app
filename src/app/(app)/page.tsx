@@ -28,7 +28,7 @@ import {
 } from "@/lib/dashboard/queries";
 import { getStatusCounts } from "@/lib/disposition/actions";
 import { getDueFollowUpsForToday, getNewHighPriority } from "@/lib/disposition/today.queries";
-import { QuotaExceededError } from "@/lib/rpc/errors";
+import { AccountAccessError, QuotaExceededError } from "@/lib/rpc/errors";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -71,15 +71,16 @@ export default async function DashboardPage({
   // state-selection hasn't run yet.
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, current_tier, account_type")
+    .select("id, current_tier, account_type, paused_at")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   if (!customer) {
-    // Customer row not yet provisioned by the email_confirmed trigger.
-    // Likely a fresh Google OAuth or race condition; send to verify-email
-    // which surfaces a "almost there" message.
-    redirect("/verify-email");
+    redirect("/account-notice");
+  }
+
+  if (customer.paused_at) {
+    redirect("/account-notice");
   }
 
   // Internal (founder/test) accounts bypass all trial gates. They get access
@@ -336,6 +337,9 @@ async function StreamedFeed({
           showRetry={false}
         />
       );
+    }
+    if (err instanceof AccountAccessError) {
+      redirect("/account-notice");
     }
     return <SectionDegraded message="Records are taking longer than usual" />;
   }

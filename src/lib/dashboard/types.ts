@@ -321,6 +321,8 @@ export type PageResult = {
   records: DashboardRecord[];
   /** Cursor to fetch the next page, or null if no more rows. */
   nextCursor: string | null;
-  /** Total count matching the filter (RLS-filtered). Expensive on large tables; capped to 10K. */
+  /** Distinct business count matching the filter. */
   totalCount: number | null;
+  /** Total record count matching the filter (from get_feed_count). */
+  recordCount: number | null;
 };

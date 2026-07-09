@@ -98,7 +98,18 @@ export async function GET(request: NextRequest) {
 
     // Fetch records bounded by remaining budget (not the full cap).
     // This ensures we never fetch more than could possibly be delivered.
-    const allRecords = await fetchAllRecordsForExport({ filters, limit: remaining });
+    let allRecords: Awaited<ReturnType<typeof fetchAllRecordsForExport>>;
+    try {
+      allRecords = await fetchAllRecordsForExport({ filters, limit: remaining });
+    } catch {
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't complete this export — check your email or contact support@foretab.com.",
+        },
+        { status: 500 },
+      );
+    }
 
     // Log actual row count via RPC. The advisory lock prevents concurrent
     // double-spend. Returns the approved budget (min of remaining, p_row_count).
@@ -140,7 +151,18 @@ export async function GET(request: NextRequest) {
   }
 
   // Paid / internal path: fetch without a row cap (Terms §7: unlimited for paid).
-  const records = await fetchAllRecordsForExport({ filters });
+  let records: Awaited<ReturnType<typeof fetchAllRecordsForExport>>;
+  try {
+    records = await fetchAllRecordsForExport({ filters });
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "We couldn't complete this export — check your email or contact support@foretab.com.",
+      },
+      { status: 500 },
+    );
+  }
 
   // Collect distinct state_ids for the audit row.
   const stateIds = Array.from(new Set(records.map((r) => r.state_id))).filter(Boolean);

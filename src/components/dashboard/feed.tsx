@@ -118,6 +118,14 @@ export function Feed({
       {isOpeningNow ? (
         <OpeningNowBar daysWindow={filters.daysWindow ?? 180} />
       ) : null}
+      {page.totalCount !== null ? (
+        <p className="px-1 text-[12px] leading-none text-foreground-subtle">
+          {page.totalCount.toLocaleString()} businesses
+          {page.recordCount !== null
+            ? ` · ${page.recordCount.toLocaleString()} records match`
+            : ""}
+        </p>
+      ) : null}
       {groups.map((g) => (
         <BusinessCard
           key={g.businessId}
