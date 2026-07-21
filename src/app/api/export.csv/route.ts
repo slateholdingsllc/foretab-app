@@ -1,4 +1,3 @@
-import { type NextRequest, NextResponse } from "next/server";
 import { buildCsvFilename, serializeRecordsToCsv } from "@/lib/csv/serialize";
 import { parseFiltersFromSearchParams } from "@/lib/dashboard/filters";
 import {
@@ -7,6 +6,7 @@ import {
   fetchCumulativeExportRowCount,
 } from "@/lib/dashboard/queries";
 import { createClient } from "@/lib/supabase/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +98,18 @@ export async function GET(request: NextRequest) {
 
     // Fetch records bounded by remaining budget (not the full cap).
     // This ensures we never fetch more than could possibly be delivered.
-    const allRecords = await fetchAllRecordsForExport({ filters, limit: remaining });
+    let allRecords: Awaited<ReturnType<typeof fetchAllRecordsForExport>>;
+    try {
+      allRecords = await fetchAllRecordsForExport({ filters, limit: remaining });
+    } catch {
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't complete this export — check your email or contact support@foretab.com.",
+        },
+        { status: 500 },
+      );
+    }
 
     // Log actual row count via RPC. The advisory lock prevents concurrent
     // double-spend. Returns the approved budget (min of remaining, p_row_count).
@@ -129,24 +140,29 @@ export async function GET(request: NextRequest) {
 
     // Slice to approved budget (handles concurrent over-spend race).
     const records = allRecords.slice(0, approvedBudget);
-    const csv = serializeRecordsToCsv(records);
     const filename = buildCsvFilename();
 
-    return new NextResponse(csv, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
-        "X-Foretab-Export-Rows": String(records.length),
-        "X-Foretab-Trial-Exported": String(alreadyExported + records.length),
-        "X-Foretab-Trial-Cap": String(TRIAL_EXPORT_CUMULATIVE_CAP),
-      },
+    return csvStreamResponse(serializeRecordsToCsv(records), {
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "X-Foretab-Export-Rows": String(records.length),
+      "X-Foretab-Trial-Exported": String(alreadyExported + records.length),
+      "X-Foretab-Trial-Cap": String(TRIAL_EXPORT_CUMULATIVE_CAP),
     });
   }
 
   // Paid / internal path: fetch without a row cap (Terms §7: unlimited for paid).
-  const records = await fetchAllRecordsForExport({ filters });
+  let records: Awaited<ReturnType<typeof fetchAllRecordsForExport>>;
+  try {
+    records = await fetchAllRecordsForExport({ filters });
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "We couldn't complete this export — check your email or contact support@foretab.com.",
+      },
+      { status: 500 },
+    );
+  }
 
   // Collect distinct state_ids for the audit row.
   const stateIds = Array.from(new Set(records.map((r) => r.state_id))).filter(Boolean);
@@ -167,16 +183,44 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const csv = serializeRecordsToCsv(records);
   const filename = buildCsvFilename();
 
-  return new NextResponse(csv, {
+  return csvStreamResponse(serializeRecordsToCsv(records), {
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "X-Foretab-Export-Rows": String(records.length),
+  });
+}
+
+/**
+ * Stream a CSV string as chunked transfer encoding to avoid Vercel's ~4.5MB
+ * response buffer ceiling. Records are still fully built in memory (needed for
+ * the audit log count), then emitted in 64KB slices so the platform never
+ * buffers the whole payload at once.
+ */
+function csvStreamResponse(csv: string, extraHeaders: Record<string, string>): Response {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(csv);
+  const CHUNK = 64 * 1024; // 64 KB
+  let offset = 0;
+
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset < bytes.length) {
+        controller.enqueue(bytes.subarray(offset, offset + CHUNK));
+        offset += CHUNK;
+      } else {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
-      "X-Foretab-Export-Rows": String(records.length),
+      "Transfer-Encoding": "chunked",
+      ...extraHeaders,
     },
   });
 }

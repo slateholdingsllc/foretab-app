@@ -1,9 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useState, useTransition } from "react";
+import { serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import type { FilterState, MapPin } from "@/lib/dashboard/types";
 import { fetchMapPins } from "@/lib/rpc/feed";
+import dynamic from "next/dynamic";
+import { useState, useTransition } from "react";
 
 // MapView uses Leaflet which requires window/document — client-only.
 const MapView = dynamic(() => import("./map-view").then((m) => m.MapView), {
@@ -31,6 +32,10 @@ export function MapPageClient({
   const [unplaced, setUnplaced] = useState(initialUnplacedCount);
   const [isPending, startTransition] = useTransition();
 
+  // Carry the user's current state/type/window context into map pin links
+  // so clicking "View on worklist" preserves the active filters.
+  const contextParams = serializeFiltersToSearchParams(filters).toString();
+
   function handleZipRadius(zip: string, miles: number) {
     startTransition(async () => {
       const result = await fetchMapPins(filters, { centerZip: zip, radiusMiles: miles });
@@ -54,6 +59,7 @@ export function MapPageClient({
       onZipRadius={handleZipRadius}
       onClearZipRadius={handleClearZipRadius}
       isZipRadiusPending={isPending}
+      contextParams={contextParams}
     />
   );
 }

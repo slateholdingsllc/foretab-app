@@ -162,7 +162,7 @@ function buildFilterParams(filters: FilterState) {
     p_license_record_type: filters.licenseTypes.length > 0 ? filters.licenseTypes : null,
     p_signal_strength:     filters.signalStrengths.length > 0 ? filters.signalStrengths : null,
     p_business_archetype:  filters.businessArchetypes.length > 0 ? filters.businessArchetypes : null,
-    p_days_window:         filters.daysWindow ?? 180, // always send an integer — get_feed_count has DEFAULT NULL so undefined would trigger all-time scan
+    p_days_window:         filters.daysWindow, // null = all-time (A confirmed NULL semantics on all five RPCs)
     p_date_from:           null,
     p_new_this_week:       filters.newThisWeek ? true : false,
     p_search:              filters.search.trim() || null,
@@ -209,7 +209,7 @@ export async function rpcFetchDashboardPage(args: {
 
   const stateIdsResult = await resolveStateIds(filters.states);
   if (stateIdsResult === "empty_filter") {
-    return { records: [], nextCursor: null, totalCount: 0 };
+    return { records: [], nextCursor: null, totalCount: 0, recordCount: null };
   }
   const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
 
@@ -275,6 +275,7 @@ export async function rpcFetchDashboardPage(args: {
     records,
     nextCursor: hasMore ? encodeRpcCursor(offset + PAGE_SIZE) : null,
     totalCount,
+    recordCount: null,
   };
 }
 
@@ -394,7 +395,7 @@ export async function rpcFetchDashboardPageByBusiness(args: {
 
   const stateIdsResult = await resolveStateIds(filters.states);
   if (stateIdsResult === "empty_filter") {
-    return { records: [], nextCursor: null, totalCount: 0 };
+    return { records: [], nextCursor: null, totalCount: 0, recordCount: null };
   }
   const stateIds = stateIdsResult.length > 0 ? stateIdsResult : null;
 
@@ -402,7 +403,7 @@ export async function rpcFetchDashboardPageByBusiness(args: {
 
   const supabase = await createClient();
 
-  const [feedResult, countResult] = await Promise.all([
+  const [feedResult, countResult, recordCountResult] = await Promise.all([
     supabase.rpc("get_feed_by_business", {
       p_state_ids:           stateIds,
       p_limit:               PAGE_SIZE + 1,
@@ -435,6 +436,14 @@ export async function rpcFetchDashboardPageByBusiness(args: {
       p_zip:                 fp.p_zip,
       p_icp_relevance:       fp.p_icp_relevance,
       p_disposition_status:  fp.p_disposition_status,
+    }),
+    supabase.rpc("get_feed_count", {
+      ...fp,
+      p_state_ids:  stateIds,
+      p_limit:      undefined,
+      p_offset:     undefined,
+      p_sort:       undefined,
+      p_lead_type:  undefined,
     }),
   ]);
 
@@ -472,12 +481,18 @@ export async function rpcFetchDashboardPageByBusiness(args: {
         ? Number(countResult.data)
         : null;
 
+  const recordCount =
+    !recordCountResult.error && typeof recordCountResult.data === "number"
+      ? recordCountResult.data
+      : null;
+
   void Promise.resolve(supabase.rpc("log_feed_access", { p_rpc_name: "get_feed_by_business" })).catch(() => {});
 
   return {
     records,
     nextCursor: hasMore ? encodeRpcCursor(offset + PAGE_SIZE) : null,
     totalCount,
+    recordCount,
   };
 }
 
@@ -557,7 +572,7 @@ export async function fetchMapPins(
 
   const { data, error } = await supabase.rpc("get_map_pins", {
     p_state_ids: stateIds,
-    p_days_window: filters.daysWindow ?? 180,
+    p_days_window: filters.daysWindow,
     p_license_record_type: filters.licenseTypes.length > 0 ? filters.licenseTypes : null,
     p_signal_strength: filters.signalStrengths.length > 0 ? filters.signalStrengths : null,
     p_business_archetype: filters.businessArchetypes.length > 0 ? filters.businessArchetypes : null,

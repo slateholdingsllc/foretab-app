@@ -1,11 +1,11 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useMemo, useState, useRef, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
-import L from "leaflet";
-import type { MapPin } from "@/lib/dashboard/types";
 import { stateCodeToName } from "@/lib/dashboard/state-names";
+import type { MapPin } from "@/lib/dashboard/types";
+import L from "leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { MapControls } from "./map-controls";
 
 // CartoDB Positron — clean neutral tiles, no API key required
@@ -21,9 +21,7 @@ function haversineDistance(
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
   const sin2 =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.asin(Math.sqrt(sin2));
 }
 
@@ -80,6 +78,7 @@ export function MapView({
   onZipRadius,
   onClearZipRadius,
   isZipRadiusPending,
+  contextParams = "",
 }: {
   initialPins: MapPin[];
   placedCount: number;
@@ -87,6 +86,7 @@ export function MapView({
   onZipRadius?: (zip: string, miles: number) => void;
   onClearZipRadius?: () => void;
   isZipRadiusPending?: boolean;
+  contextParams?: string;
 }) {
   const [territory, setTerritory] = useState<"all" | "in" | "out">("all");
   const [radiusCenter, setRadiusCenter] = useState<{ lat: number; lng: number } | null>(null);
@@ -125,8 +125,7 @@ export function MapView({
     // When ZIP radius is active, pins are already filtered server-side — skip haversine.
     if (!zipRadiusActive && radiusCenter && radiusMiles !== null) {
       pins = pins.filter(
-        (p) =>
-          haversineDistance(radiusCenter, { lat: p.lat!, lng: p.lng! }) <= radiusMiles,
+        (p) => haversineDistance(radiusCenter, { lat: p.lat!, lng: p.lng! }) <= radiusMiles,
       );
     }
     return pins;
@@ -144,9 +143,7 @@ export function MapView({
     if (placedPins.length === 0) {
       return { center: [39.5, -98.35] as [number, number], zoom: 4 };
     }
-    const bounds = L.latLngBounds(
-      placedPins.map((p) => [p.lat!, p.lng!] as [number, number]),
-    );
+    const bounds = L.latLngBounds(placedPins.map((p) => [p.lat!, p.lng!] as [number, number]));
     return { bounds, boundsOptions: { padding: [40, 40] as [number, number] } };
   }, [placedPins]);
 
@@ -174,8 +171,8 @@ export function MapView({
         </div>
       ) : placedPins.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
-          No geocoded locations found. Coordinates are populated as records are
-          processed — check back after the next data refresh.
+          No geocoded locations found. Coordinates are populated as records are processed — check
+          back after the next data refresh.
         </div>
       ) : visiblePins.length === 0 && radiusCenter !== null ? (
         <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
@@ -193,11 +190,7 @@ export function MapView({
             <RadiusCenterSetter onSet={setRadiusCenter} />
             <MapAutoFit pins={initialPins} />
             {visiblePins.map((pin) => (
-              <Marker
-                key={pin.id}
-                position={[pin.lat!, pin.lng!]}
-                icon={makePinIcon(pin.inState)}
-              >
+              <Marker key={pin.id} position={[pin.lat!, pin.lng!]} icon={makePinIcon(pin.inState)}>
                 <Popup minWidth={200}>
                   <div style={{ padding: "2px 0", lineHeight: 1.5 }}>
                     <p style={{ fontWeight: 700, fontSize: "13px", marginBottom: "3px" }}>
@@ -205,9 +198,7 @@ export function MapView({
                     </p>
                     {pin.city ? (
                       <p style={{ fontSize: "12px", color: "#888", marginBottom: "2px" }}>
-                        {[pin.city, pin.premisesStateCode, pin.zip]
-                          .filter(Boolean)
-                          .join(", ")}
+                        {[pin.city, pin.premisesStateCode, pin.zip].filter(Boolean).join(", ")}
                       </p>
                     ) : null}
                     {pin.inState === false && pin.premisesStateCode ? (
@@ -225,7 +216,12 @@ export function MapView({
                     ) : null}
                     {pin.businessName ? (
                       <a
-                        href={`/?q=${encodeURIComponent(pin.businessName)}&all=1`}
+                        href={(() => {
+                          const p = new URLSearchParams(contextParams);
+                          p.set("q", pin.businessName);
+                          p.delete("cursor");
+                          return `/?${p.toString()}`;
+                        })()}
                         style={{
                           fontSize: "12px",
                           color: "#4F7EEB",
@@ -242,11 +238,35 @@ export function MapView({
           </MapContainer>
 
           {/* Map attribution — required by CartoDB/OSM ToS, styled minimal */}
-          <div style={{ position: "absolute", bottom: 4, right: 8, zIndex: 1000, fontSize: 9, color: "#94a3b8", lineHeight: 1.2 }}>
+          <div
+            style={{
+              position: "absolute",
+              bottom: 4,
+              right: 8,
+              zIndex: 1000,
+              fontSize: 9,
+              color: "#94a3b8",
+              lineHeight: 1.2,
+            }}
+          >
             ©{" "}
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>OpenStreetMap</a>
-            {" "}contributors ©{" "}
-            <a href="https://carto.com/attributions" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>CARTO</a>
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "inherit" }}
+            >
+              OpenStreetMap
+            </a>{" "}
+            contributors ©{" "}
+            <a
+              href="https://carto.com/attributions"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "inherit" }}
+            >
+              CARTO
+            </a>
           </div>
 
           {zipRadiusActive && zipRadiusMiles ? (

@@ -1,19 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  createSavedFilter,
-  deleteSavedFilter,
-} from "@/lib/actions/saved-filters";
-import {
-  hasActiveFilters,
-  serializeFiltersToSearchParams,
-} from "@/lib/dashboard/filters";
+import { createSavedFilter, deleteSavedFilter } from "@/lib/actions/saved-filters";
+import { hasActiveFilters, serializeFiltersToSearchParams } from "@/lib/dashboard/filters";
 import type { SavedFilter } from "@/lib/dashboard/saved-filters";
 import type { FilterState } from "@/lib/dashboard/types";
+import Link from "next/link";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 /**
  * Top-bar saved-filters dropdown. Click the button → opens a panel with:
@@ -65,6 +59,27 @@ export function SavedFiltersMenu({
   const filtersActive = hasActiveFilters(currentFilters);
   const currentFiltersJson = JSON.stringify(currentFilters);
 
+  // Opening Now preset: exactly new-issuance + application types, any time window.
+  const isOpeningNowActive =
+    currentFilters.licenseTypes.length === 2 &&
+    currentFilters.licenseTypes.includes("new_issuance") &&
+    currentFilters.licenseTypes.includes("application") &&
+    currentFilters.daysWindow !== null;
+
+  // All Records preset: clear types + days from current filters (state/territory preserved).
+  const allRecordsFilters: FilterState = {
+    ...currentFilters,
+    licenseTypes: [],
+    daysWindow: null,
+    newThisWeek: false,
+  };
+  const allRecordsParams = serializeFiltersToSearchParams(allRecordsFilters);
+  const allRecordsHref = allRecordsParams.toString() ? `/?${allRecordsParams.toString()}` : "/";
+  const isAllRecordsActive =
+    currentFilters.licenseTypes.length === 0 &&
+    currentFilters.daysWindow === null &&
+    !currentFilters.newThisWeek;
+
   const onSave = (formData: FormData) => {
     setError(null);
     startTransition(async () => {
@@ -79,9 +94,7 @@ export function SavedFiltersMenu({
   };
 
   const onDelete = (filter: SavedFilter) => (formData: FormData) => {
-    const confirmed = window.confirm(
-      `Delete saved view "${filter.name}"? This can't be undone.`,
-    );
+    const confirmed = window.confirm(`Delete saved view "${filter.name}"? This can't be undone.`);
     if (!confirmed) return;
     startTransition(async () => {
       const result = await deleteSavedFilter(formData);
@@ -109,7 +122,10 @@ export function SavedFiltersMenu({
         >
           <form action={onSave} className="space-y-2 border-b border-input p-3">
             <input type="hidden" name="filter_config_json" value={currentFiltersJson} />
-            <label className="text-xs font-medium text-muted-foreground" htmlFor="saved-filter-name">
+            <label
+              className="text-xs font-medium text-muted-foreground"
+              htmlFor="saved-filter-name"
+            >
               Save current view as
             </label>
             <div className="flex gap-2">
@@ -143,8 +159,38 @@ export function SavedFiltersMenu({
           </form>
 
           <div className="max-h-72 overflow-y-auto p-1">
-            {/* Built-in preset: always visible */}
+            {/* Built-in presets: always visible, never deletable */}
             <ul className="space-y-0.5 border-b border-input pb-1 mb-1">
+              <li className="flex items-center gap-1 rounded-md hover:bg-accent">
+                <Link
+                  href="/?types=new_issuance,application&days=180"
+                  onClick={() => setOpen(false)}
+                  className={`flex-1 truncate px-2 py-2 text-sm${isOpeningNowActive ? " font-medium text-primary" : ""}`}
+                  prefetch={false}
+                >
+                  Opening Now
+                  <span
+                    className={`ml-2 text-xs ${isOpeningNowActive ? "text-primary/70" : "text-muted-foreground"}`}
+                  >
+                    {isOpeningNowActive ? "active" : "preset"}
+                  </span>
+                </Link>
+              </li>
+              <li className="flex items-center gap-1 rounded-md hover:bg-accent">
+                <Link
+                  href={allRecordsHref}
+                  onClick={() => setOpen(false)}
+                  className={`flex-1 truncate px-2 py-2 text-sm${isAllRecordsActive ? " font-medium text-primary" : ""}`}
+                  prefetch={false}
+                >
+                  All Records
+                  <span
+                    className={`ml-2 text-xs ${isAllRecordsActive ? "text-primary/70" : "text-muted-foreground"}`}
+                  >
+                    {isAllRecordsActive ? "active" : "preset"}
+                  </span>
+                </Link>
+              </li>
               <li className="flex items-center gap-1 rounded-md hover:bg-accent">
                 <Link
                   href="/?territory=out"
@@ -179,9 +225,7 @@ export function SavedFiltersMenu({
                       >
                         {filter.name}
                         {filter.is_default ? (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            default
-                          </span>
+                          <span className="ml-2 text-xs text-muted-foreground">default</span>
                         ) : null}
                       </Link>
                       <form action={onDelete(filter)}>
